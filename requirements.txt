@@ -1,3 +1,5 @@
 pyTelegramBotAPI
 gspread
 google-auth
+matplotlib
+reportlab
