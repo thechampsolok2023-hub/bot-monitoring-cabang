@@ -18,8 +18,8 @@ creds_dict = json.loads(os.getenv("GOOGLE_CREDENTIALS"))
 creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
 client = gspread.authorize(creds)
 
-SPREADSHEET_NAME = "INDIKATOR_FKRTL"  # ganti jika nama sheet berbeda
-sheet = client.open(SPREADSHEET_NAME).sheet1
+SPREADSHEET_ID = "1AbCdEfGhIjKlMnOpQrStUvWxYz123456789"
+sheet = client.open_by_key(SPREADSHEET_ID).worksheet("INDIKATOR_FKRTL")
 
 
 # ================= MENU BULAN =================
