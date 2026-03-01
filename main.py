@@ -25,7 +25,7 @@ creds_dict = json.loads(os.getenv("GOOGLE_CREDENTIALS"))
 creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
 client = gspread.authorize(creds)
 
-SPREADSHEET_ID = "PASTE_SPREADSHEET_ID_KAMU"
+SPREADSHEET_ID = "1FiGTCl-Nny3Eqr657Q1luTQMDNwczxr-R9z1PgiorI0"
 sheet = client.open_by_key(SPREADSHEET_ID).sheet1
 
 # ================= MENU BULAN =================
