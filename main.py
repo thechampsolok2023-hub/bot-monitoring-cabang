@@ -54,15 +54,21 @@ def callback_query(call):
         data = sheet.get_all_records()
 
         hasil = []
-        for row in data:
-            if row["BULAN"] == bulan_dipilih:
-                nama = row["NamaPPK"]
-                nilai = float(row["Nilai Kepatuhan"])
-                hasil.append((nama, nilai))
 
-        if not hasil:
-            bot.send_message(call.message.chat.id, "Data tidak ditemukan.")
-            return
+for row in data:
+    bulan_sheet = str(row.get("BULAN", "")).strip()
+
+    if bulan_sheet.lower() == bulan_dipilih.lower():
+
+        nama = row.get("NamaPPK", "Tidak Ada Nama")
+        nilai_raw = row.get("Nilai Kepatuhan", 0)
+
+        try:
+            nilai = float(str(nilai_raw).replace(",", "."))
+        except:
+            nilai = 0
+
+        hasil.append((nama, nilai))
 
         # Ranking
         hasil.sort(key=lambda x: x[1], reverse=True)
