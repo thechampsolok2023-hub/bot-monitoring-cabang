@@ -56,7 +56,7 @@ def callback_query(call):
         hasil = []
         for row in data:
             if row["BULAN"] == bulan_dipilih:
-                nama = row["Nama PPK"]
+                nama = row["NamaPPK"]
                 nilai = float(row["Nilai Kepatuhan"])
                 hasil.append((nama, nilai))
 
