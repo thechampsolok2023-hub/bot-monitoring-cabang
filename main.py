@@ -34,8 +34,7 @@ client = gspread.authorize(creds)
 SPREADSHEET_ID = "1FiGTCl-Nny3Eqr657Q1luTQMDNwczxr-R9z1PgiorI0"
 sheet = client.open_by_key(SPREADSHEET_ID).sheet1
 
-
-# ================= MENU UTAMA =================
+# ================= MENU =================
 def main_menu():
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(
@@ -48,107 +47,44 @@ def main_menu():
     )
     return markup
 
-
 def home_button():
     markup = InlineKeyboardMarkup()
     markup.add(InlineKeyboardButton("🏠 Home", callback_data="home"))
     return markup
 
-
-# ================= MENU TAHUN DINAMIS =================
 def tahun_menu():
     data = sheet.get_all_records()
-    tahun_set = set()
-
-    for row in data:
-        tahun = str(row.get("TAHUN", "")).strip()
-        if tahun:
-            tahun_set.add(tahun)
-
+    tahun_set = {str(row.get("TAHUN","")).strip() for row in data if row.get("TAHUN")}
     tahun_sorted = sorted(tahun_set, reverse=True)
 
     markup = InlineKeyboardMarkup(row_width=3)
-    buttons = [
-        InlineKeyboardButton(t, callback_data=f"tahun_{t}")
-        for t in tahun_sorted
-    ]
+    buttons = [InlineKeyboardButton(t, callback_data=f"tahun_{t}") for t in tahun_sorted]
     markup.add(*buttons)
     markup.add(InlineKeyboardButton("🏠 Home", callback_data="home"))
     return markup
 
-
 # ================= START =================
 @bot.message_handler(commands=['start'])
 def start(message):
-
     nama_user = message.from_user.full_name
-
     bot.send_message(
         message.chat.id,
         f"🏥 *SISTEM MONITORING FKRTL*\n"
         f"BPJS Kesehatan\n"
         f"Kantor Cabang Solok\n\n"
         f"Yth. *{nama_user}*,\n\n"
-        "Selamat datang di Sistem Monitoring Fasilitas Kesehatan Rujukan Tingkat Lanjutan (FKRTL).\n\n"
-        "Sistem ini digunakan untuk memantau dan mengevaluasi indikator kepatuhan serta kinerja layanan rumah sakit berdasarkan data terintegrasi.\n\n"
-        "Silakan memilih menu utama untuk mengakses informasi yang dibutuhkan.",
+        "Selamat datang di Sistem Monitoring FKRTL.\n\n"
+        "Silakan memilih menu utama.",
         reply_markup=main_menu(),
         parse_mode="Markdown"
     )
 
-def generate_pdf(hasil, bulan, tahun, rata, terbaik, terendah):
-
-    doc = SimpleDocTemplate(
-        "Laporan_Indikator_Kepatuhan.pdf"
-    )
-
-    elements = []
-    styles = getSampleStyleSheet()
-
-    elements.append(Paragraph("<b>SISTEM MONITORING FKRTL</b>", styles["Title"]))
-    elements.append(Paragraph("BPJS Kesehatan - Kantor Cabang Solok", styles["Normal"]))
-    elements.append(Spacer(1, 12))
-
-    elements.append(Paragraph(f"<b>Laporan Indikator Kepatuhan</b>", styles["Heading2"]))
-    elements.append(Paragraph(f"{bulan} {tahun}", styles["Normal"]))
-    elements.append(Spacer(1, 20))
-
-    # Tabel
-    data_table = [["No","Nama Faskes","Nilai (%)"]]
-
-    for i,(nama,nilai) in enumerate(hasil,1):
-        nilai_format = f"{nilai:.2f}".replace(".", ",")
-        data_table.append([i,nama,nilai_format])
-
-    table = Table(data_table, colWidths=[40,300,80])
-
-    table.setStyle(TableStyle([
-        ('BACKGROUND',(0,0),(-1,0),colors.HexColor("#005BAC")),
-        ('TEXTCOLOR',(0,0),(-1,0),colors.white),
-        ('GRID',(0,0),(-1,-1),0.5,colors.grey),
-        ('ALIGN',(2,1),(-1,-1),'CENTER'),
-        ('FONTNAME',(0,0),(-1,-1),'Helvetica'),
-    ]))
-
-    elements.append(table)
-    elements.append(Spacer(1, 20))
-
-    rata_format = f"{rata:.2f}".replace(".", ",")
-    terbaik_format = f"{terbaik[1]:.2f}".replace(".", ",")
-    terendah_format = f"{terendah[1]:.2f}".replace(".", ",")
-
-    elements.append(Paragraph(f"<b>Rata-rata:</b> {rata_format}%", styles["Normal"]))
-    elements.append(Paragraph(f"<b>Tertinggi:</b> {terbaik[0]} ({terbaik_format}%)", styles["Normal"]))
-    elements.append(Paragraph(f"<b>Terendah:</b> {terendah[0]} ({terendah_format}%)", styles["Normal"]))
-
-    doc.build(elements)
 # ================= CALLBACK =================
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
 
     data = sheet.get_all_records()
 
-    # ===== HOME =====
     if call.data == "home":
         bot.edit_message_text(
             "🏠 *Menu Utama*\nSilakan pilih layanan:",
@@ -158,8 +94,22 @@ def callback(call):
             parse_mode="Markdown"
         )
 
-    # ===== INDIKATOR → PILIH TAHUN =====
     elif call.data == "indikator":
+        markup = InlineKeyboardMarkup()
+        markup.add(
+            InlineKeyboardButton("📊 Seluruh Faskes", callback_data="indikator_all"),
+            InlineKeyboardButton("🏥 Per Faskes", callback_data="indikator_rs"),
+        )
+        markup.add(InlineKeyboardButton("🏠 Home", callback_data="home"))
+
+        bot.edit_message_text(
+            "Silakan pilih jenis laporan:",
+            call.message.chat.id,
+            call.message.message_id,
+            reply_markup=markup
+        )
+
+    elif call.data == "indikator_all":
         bot.edit_message_text(
             "📊 Pilih Tahun:",
             call.message.chat.id,
@@ -167,32 +117,32 @@ def callback(call):
             reply_markup=tahun_menu()
         )
 
-    # ===== PILIH TAHUN → PILIH BULAN =====
+    elif call.data == "indikator_rs":
+        bot.edit_message_text(
+            "🏥 Pilih Tahun untuk melihat detail per Faskes:",
+            call.message.chat.id,
+            call.message.message_id,
+            reply_markup=tahun_menu()
+        )
+
     elif call.data.startswith("tahun_"):
-
         tahun = call.data.split("_")[1]
-        bulan_set = set()
+        bulan_set = {
+            str(row.get("BULAN","")).strip()
+            for row in data
+            if str(row.get("TAHUN","")) == tahun
+        }
 
-        for row in data:
-            if str(row.get("TAHUN", "")) == tahun:
-                bulan = str(row.get("BULAN", "")).strip()
-                if bulan:
-                    bulan_set.add(bulan)
+        urutan = ["Januari","Februari","Maret","April","Mei","Juni",
+                  "Juli","Agustus","September","Oktober","November","Desember"]
 
-        urutan_bulan = [
-            "Januari","Februari","Maret","April",
-            "Mei","Juni","Juli","Agustus",
-            "September","Oktober","November","Desember"
-        ]
-
-        bulan_sorted = [b for b in urutan_bulan if b in bulan_set]
+        bulan_sorted = [b for b in urutan if b in bulan_set]
 
         markup = InlineKeyboardMarkup(row_width=3)
         buttons = [
             InlineKeyboardButton(b, callback_data=f"bulan_{tahun}_{b}")
             for b in bulan_sorted
         ]
-
         markup.add(*buttons)
         markup.add(InlineKeyboardButton("🏠 Home", callback_data="home"))
 
@@ -203,36 +153,20 @@ def callback(call):
             reply_markup=markup
         )
 
-            # ===== PILIH BULAN → TAMPILKAN RANKING =====
     elif call.data.startswith("bulan_"):
 
         _, tahun, bulan = call.data.split("_")
-
         hasil = []
 
         for row in data:
             if (str(row.get("TAHUN","")) == tahun and
                 bulan.lower() in str(row.get("BULAN","")).lower()):
 
-                nama_full = row.get("NamaPPK","-")
+                nama = row.get("NamaPPK","-").split("(")[0].strip()
+                nilai = float(row.get("Nilai Kepatuhan") or 0)
 
-                # Hilangkan kode faskes
-                if "(" in nama_full:
-                    nama = nama_full.split("(")[0].strip()
-                else:
-                    nama = nama_full.strip()
-
-                # Potong otomatis jika terlalu panjang
-                if len(nama) > 28:
-                    nama = nama[:25] + "..."
-
-                nilai_raw = float(row.get("Nilai Kepatuhan") or 0)
-
-                # Normalisasi
-                if nilai_raw > 100:
-                    nilai = nilai_raw / 100
-                else:
-                    nilai = nilai_raw
+                if nilai > 100:
+                    nilai = nilai / 100
 
                 hasil.append((nama,nilai))
 
@@ -242,48 +176,28 @@ def callback(call):
 
         hasil.sort(key=lambda x: x[1], reverse=True)
 
-        terbaik = hasil[0]
-        terendah = hasil[-1]
-
-        text = f"📊 *RANKING INDIKATOR KEPATUHAN*\n"
-        text += f"📅 {bulan} {tahun}\n\n"
+        text = f"📊 *RANKING INDIKATOR KEPATUHAN*\n📅 {bulan} {tahun}\n\n"
 
         total = 0
-
         for i,(nama,nilai) in enumerate(hasil,1):
-
-            if nilai >= 85:
-                icon = "🟢"
-            elif nilai >= 75:
-                icon = "🟡"
-            else:
-                icon = "🔴"
-
+            icon = "🟢" if nilai >= 85 else "🟡" if nilai >= 75 else "🔴"
             nilai_format = f"{nilai:.2f}".replace(".", ",")
             text += f"{i}. {nama} - {icon} {nilai_format}%\n"
             total += nilai
 
         rata = total / len(hasil)
-        rata_format = f"{rata:.2f}".replace(".", ",")
+        text += f"\n📈 *Rata-rata:* {rata:.2f}%"
 
-        terbaik_format = f"{terbaik[1]:.2f}".replace(".", ",")
-        terendah_format = f"{terendah[1]:.2f}".replace(".", ",")
-
-        text += f"\n📈 *Rata-rata:* {rata_format}%"
-        text += f"\n🏆 *Tertinggi:* {terbaik[0]} ({terbaik_format}%)"
-        text += f"\n⚠️ *Terendah:* {terendah[0]} ({terendah_format}%)"
-
-        # ====== GRAFIK HORIZONTAL PROFESIONAL ======
+        # Grafik
         names = [x[0] for x in hasil]
         values = [x[1] for x in hasil]
 
         plt.figure(figsize=(8,6))
-        bars = plt.barh(names, values)
+        plt.barh(names, values)
         plt.xlim(0,100)
         plt.xlabel("Nilai Kepatuhan (%)")
         plt.title(f"Ranking Kepatuhan - {bulan} {tahun}")
         plt.gca().invert_yaxis()
-
         plt.tight_layout()
         plt.savefig("ranking.png")
         plt.close()
@@ -297,7 +211,6 @@ def callback(call):
         )
 
     bot.answer_callback_query(call.id)
-
 
 print("Bot started ✅")
 bot.infinity_polling()
