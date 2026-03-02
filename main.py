@@ -107,65 +107,78 @@ def callback(call):
             main_menu()
         )
 
-    # ===== INDIKATOR =====
+        # ===== INDIKATOR =====
     elif call.data == "indikator":
+        markup = InlineKeyboardMarkup(row_width=1)
+        markup.add(
+            InlineKeyboardButton("📊 Seluruh RS", callback_data="indikator_all"),
+            InlineKeyboardButton("🏥 Per Rumah Sakit", callback_data="indikator_per"),
+            InlineKeyboardButton("🏠 Home", callback_data="home")
+        )
+
         safe_edit(
             call.message.chat.id,
             call.message.message_id,
-            "📊 *Indikator Kepatuhan*\n\nSilakan pilih bulan:",
+            "📊 *Indikator Kepatuhan*\n\nSilakan pilih tampilan:",
+            markup
+        )
+
+    # ===== SELURUH RS =====
+    elif call.data == "indikator_all":
+        safe_edit(
+            call.message.chat.id,
+            call.message.message_id,
+            "📊 *Seluruh RS*\n\nSilakan pilih bulan:",
             bulan_menu()
         )
 
-    # ===== PILIH BULAN =====
-    elif call.data.startswith("bulan_"):
-        bulan = call.data.split("_")[1]
-        hasil = []
+    # ===== PER RUMAH SAKIT =====
+    elif call.data == "indikator_per":
+
+        rs_list = sorted(set(row.get("NamaPPK","-") for row in data))
+        markup = InlineKeyboardMarkup(row_width=1)
+
+        for rs in rs_list:
+            markup.add(
+                InlineKeyboardButton(rs, callback_data=f"detailrs_{rs}")
+            )
+
+        markup.add(InlineKeyboardButton("🏠 Home", callback_data="home"))
+
+        safe_edit(
+            call.message.chat.id,
+            call.message.message_id,
+            "🏥 *Pilih Rumah Sakit:*",
+            markup
+        )
+
+    # ===== DETAIL PER RS =====
+    elif call.data.startswith("detailrs_"):
+
+        rs = call.data.replace("detailrs_","")
+        text = f"🏥 *{rs}*\n\n"
+
+        total = 0
+        count = 0
 
         for row in data:
-            if str(row.get("BULAN","")).lower() == bulan.lower():
-                nama = row.get("NamaPPK","-")
+            if row.get("NamaPPK","") == rs:
+                bulan = row.get("BULAN","-")
                 nilai = float(row.get("Nilai Kepatuhan",0))
-                hasil.append((nama,nilai))
+                icon = "🟢" if nilai >= 85 else "🔴"
+                text += f"{bulan} : {icon} {nilai}\n"
+                total += nilai
+                count += 1
 
-        if not hasil:
-            bot.answer_callback_query(call.id,"Data tidak ada")
-            return
+        if count > 0:
+            rata = round(total/count,2)
+            text += f"\n📈 Rata-rata Tahunan: *{rata}*"
 
-        hasil.sort(key=lambda x: x[1], reverse=True)
-
-        text = f"📊 *Ranking Kepatuhan Bulan {bulan}*\n\n"
-        total = 0
-
-        for i,(nama,nilai) in enumerate(hasil,1):
-            icon = "🟢" if nilai >= 85 else "🔴"
-            text += f"{i}. {nama} - {icon} {nilai}\n"
-            total += nilai
-
-        rata = round(total/len(hasil),2)
-        terbaik = hasil[0]
-        terendah = hasil[-1]
-
-        text += f"\n📈 Rata-rata: *{rata}*"
-        text += f"\n🏆 Tertinggi: {terbaik[0]} ({terbaik[1]})"
-        text += f"\n⚠️ Terendah: {terendah[0]} ({terendah[1]})"
-
-        # Grafik
-        names = [x[0] for x in hasil]
-        values = [x[1] for x in hasil]
-
-        plt.figure()
-        plt.bar(names, values)
-        plt.xticks(rotation=45)
-        plt.tight_layout()
-        plt.savefig("ranking.png")
-        plt.close()
-
-        bot.send_photo(call.message.chat.id, open("ranking.png","rb"))
-        bot.send_message(
+        safe_edit(
             call.message.chat.id,
+            call.message.message_id,
             text,
-            parse_mode="Markdown",
-            reply_markup=home_button()
+            home_button()
         )
 
     # ===== MENU LAIN TERHUBUNG SHEET =====
