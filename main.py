@@ -181,16 +181,16 @@ def callback(call):
         total = 0
         for i,(nama,nilai) in enumerate(hasil,1):
             icon = "🟢" if nilai >= 85 else "🔴"
-            text += f"{i}. {nama} - {icon} {nilai}\n"
+            nilai_format = f"{nilai:.2f}".replace(".", ",")
+            text += f"{i}. {nama} - {icon} {nilai_format}%\n"
             total += nilai
 
         rata = round(total/len(hasil),2)
-        terbaik = hasil[0]
-        terendah = hasil[-1]
+        rata_format = f"{rata:.2f}".replace(".", ",")
 
-        text += f"\n📈 Rata-rata: *{rata}*"
-        text += f"\n🏆 Tertinggi: {terbaik[0]} ({terbaik[1]})"
-        text += f"\n⚠️ Terendah: {terendah[0]} ({terendah[1]})"
+        text += f"\n📈 Rata-rata: *{rata_format}%*"
+        text += f"\n🏆 Tertinggi: {terbaik[0]} ({f'{terbaik[1]:.2f}'.replace('.',',')}%)"
+        text += f"\n⚠️ Terendah: {terendah[0]} ({f'{terendah[1]:.2f}'.replace('.',',')}%)"
 
         # Grafik
         names = [x[0] for x in hasil]
