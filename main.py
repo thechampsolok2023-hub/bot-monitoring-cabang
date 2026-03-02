@@ -157,70 +157,84 @@ def callback(call):
     # ===== PILIH BULAN → TAMPILKAN RANKING =====
     elif call.data.startswith("bulan_"):
 
-        _, tahun, bulan = call.data.split("_")
+    _, tahun, bulan = call.data.split("_")
 
-        hasil = []
+    hasil = []
 
-        for row in data:
-            if (str(row.get("TAHUN","")) == tahun and
-                bulan.lower() in str(row.get("BULAN","")).lower()):
+    for row in data:
+        if (str(row.get("TAHUN","")) == tahun and
+            bulan.lower() in str(row.get("BULAN","")).lower()):
 
-                nama = row.get("NamaPPK","-")
-nilai_raw = float(row.get("Nilai Kepatuhan") or 0)
+            nama = row.get("NamaPPK","-")
+            nilai_raw = float(row.get("Nilai Kepatuhan") or 0)
 
-# otomatis normalisasi
-if nilai_raw > 100:
-    nilai = nilai_raw / 100
-else:
-    nilai = nilai_raw
+            # Normalisasi otomatis
+            if nilai_raw > 100:
+                nilai = nilai_raw / 100
+            else:
+                nilai = nilai_raw
 
-hasil.append((nama,nilai))
+            hasil.append((nama,nilai))
 
-        if not hasil:
-            bot.answer_callback_query(call.id,"Data tidak ada")
-            return
+    if not hasil:
+        bot.answer_callback_query(call.id,"Data tidak ada")
+        return
 
-        hasil.sort(key=lambda x: x[1], reverse=True)
-        terbaik = hasil[0]
-        terendah = hasil[-1]
+    # Urutkan dari tertinggi
+    hasil.sort(key=lambda x: x[1], reverse=True)
 
-        text = f"📊 *Ranking Kepatuhan*\n"
-        text += f"📅 {bulan} {tahun}\n\n"
+    terbaik = hasil[0]
+    terendah = hasil[-1]
 
-        total = 0
-        for i,(nama,nilai) in enumerate(hasil,1):
-            icon = "🟢" if nilai >= 85 else "🔴"
-            nilai_format = f"{nilai:.2f}".replace(".", ",")
-            text += f"{i}. {nama} - {icon} {nilai_format}%\n"
-            total += nilai
+    text = f"📊 *Ranking Kepatuhan*\n"
+    text += f"📅 {bulan} {tahun}\n\n"
 
-        rata = total / len(hasil)
-rata_format = f"{rata:.2f}".replace(".", ",")
+    total = 0
 
-terbaik_format = f"{terbaik[1]:.2f}".replace(".", ",")
-terendah_format = f"{terendah[1]:.2f}".replace(".", ",")
+    for i,(nama,nilai) in enumerate(hasil,1):
 
-text += f"\n📈 Rata-rata: *{rata_format}%*"
-text += f"\n🏆 Tertinggi: {terbaik[0]} ({terbaik_format}%)"
-text += f"\n⚠️ Terendah: {terendah[0]} ({terendah_format}%)"
-        # Grafik
-        names = [x[0] for x in hasil]
-        values = [x[1] for x in hasil]
+        # Warna indikator
+        if nilai >= 85:
+            icon = "🟢"
+        elif nilai >= 75:
+            icon = "🟡"
+        else:
+            icon = "🔴"
 
-        plt.figure()
-        plt.bar(names, values)
-        plt.xticks(rotation=45)
-        plt.tight_layout()
-        plt.savefig("ranking.png")
-        plt.close()
+        nilai_format = f"{nilai:.2f}".replace(".", ",")
+        text += f"{i}. {nama} - {icon} {nilai_format}%\n"
+        total += nilai
 
-        bot.send_photo(call.message.chat.id, open("ranking.png","rb"))
-        bot.send_message(
-            call.message.chat.id,
-            text,
-            parse_mode="Markdown",
-            reply_markup=home_button()
-        )
+    # Rata-rata
+    rata = total / len(hasil)
+    rata_format = f"{rata:.2f}".replace(".", ",")
+
+    terbaik_format = f"{terbaik[1]:.2f}".replace(".", ",")
+    terendah_format = f"{terendah[1]:.2f}".replace(".", ",")
+
+    text += f"\n📈 Rata-rata: *{rata_format}%*"
+    text += f"\n🏆 Tertinggi: {terbaik[0]} ({terbaik_format}%)"
+    text += f"\n⚠️ Terendah: {terendah[0]} ({terendah_format}%)"
+
+    # ================= GRAFIK =================
+    names = [x[0] for x in hasil]
+    values = [x[1] for x in hasil]
+
+    plt.figure()
+    plt.bar(names, values)
+    plt.ylim(0,100)  # supaya skala 0-100
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.savefig("ranking.png")
+    plt.close()
+
+    bot.send_photo(call.message.chat.id, open("ranking.png","rb"))
+    bot.send_message(
+        call.message.chat.id,
+        text,
+        parse_mode="Markdown",
+        reply_markup=home_button()
+    )
 
     bot.answer_callback_query(call.id)
 
