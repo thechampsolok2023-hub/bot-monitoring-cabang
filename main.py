@@ -166,14 +166,23 @@ def callback(call):
                 bulan.lower() in str(row.get("BULAN","")).lower()):
 
                 nama = row.get("NamaPPK","-")
-                nilai = float(row.get("Nilai Kepatuhan") or 0)
-                hasil.append((nama,nilai))
+nilai_raw = float(row.get("Nilai Kepatuhan") or 0)
+
+# otomatis normalisasi
+if nilai_raw > 100:
+    nilai = nilai_raw / 100
+else:
+    nilai = nilai_raw
+
+hasil.append((nama,nilai))
 
         if not hasil:
             bot.answer_callback_query(call.id,"Data tidak ada")
             return
 
         hasil.sort(key=lambda x: x[1], reverse=True)
+        terbaik = hasil[0]
+        terendah = hasil[-1]
 
         text = f"📊 *Ranking Kepatuhan*\n"
         text += f"📅 {bulan} {tahun}\n\n"
@@ -185,13 +194,15 @@ def callback(call):
             text += f"{i}. {nama} - {icon} {nilai_format}%\n"
             total += nilai
 
-        rata = round(total/len(hasil),2)
-        rata_format = f"{rata:.2f}".replace(".", ",")
+        rata = total / len(hasil)
+rata_format = f"{rata:.2f}".replace(".", ",")
 
-        text += f"\n📈 Rata-rata: *{rata_format}%*"
-        text += f"\n🏆 Tertinggi: {terbaik[0]} ({f'{terbaik[1]:.2f}'.replace('.',',')}%)"
-        text += f"\n⚠️ Terendah: {terendah[0]} ({f'{terendah[1]:.2f}'.replace('.',',')}%)"
+terbaik_format = f"{terbaik[1]:.2f}".replace(".", ",")
+terendah_format = f"{terendah[1]:.2f}".replace(".", ",")
 
+text += f"\n📈 Rata-rata: *{rata_format}%*"
+text += f"\n🏆 Tertinggi: {terbaik[0]} ({terbaik_format}%)"
+text += f"\n⚠️ Terendah: {terendah[0]} ({terendah_format}%)"
         # Grafik
         names = [x[0] for x in hasil]
         values = [x[1] for x in hasil]
