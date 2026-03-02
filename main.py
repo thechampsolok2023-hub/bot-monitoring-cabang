@@ -30,7 +30,7 @@ creds_dict = json.loads(creds_env)
 creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
 client = gspread.authorize(creds)
 
-SPREADSHEET_ID = "ISI_SPREADSHEET_ID_KAMU"
+SPREADSHEET_ID = "1FiGTCl-Nny3Eqr657Q1luTQMDNwczxr-R9z1PgiorI0"
 sheet = client.open_by_key(SPREADSHEET_ID).sheet1
 
 # ================= MENU UTAMA =================
