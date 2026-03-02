@@ -10,7 +10,6 @@ from reportlab.lib.units import inch
 from reportlab.lib.styles import getSampleStyleSheet
 
 # ================= ENV =================
-
 TOKEN = os.getenv("BOT_TOKEN")
 if not TOKEN:
     raise ValueError("BOT_TOKEN tidak ditemukan")
@@ -22,7 +21,6 @@ if not creds_env:
 bot = telebot.TeleBot(TOKEN)
 
 # ================= GOOGLE =================
-
 scope = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive"
@@ -32,20 +30,34 @@ creds_dict = json.loads(creds_env)
 creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
 client = gspread.authorize(creds)
 
-SPREADSHEET_ID = "1FiGTCl-Nny3Eqr657Q1luTQMDNwczxr-R9z1PgiorI0"
-
+SPREADSHEET_ID = "ISI_SPREADSHEET_ID_KAMU"
 sheet = client.open_by_key(SPREADSHEET_ID).sheet1
 
-print("Google Sheet connected ✅")
-print("Bot polling started ✅")
+# ================= MENU UTAMA =================
+def main_menu():
+    markup = InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        InlineKeyboardButton("📊 Indikator Kepatuhan", callback_data="indikator"),
+        InlineKeyboardButton("🏥 Antrian Online", callback_data="antrian"),
+        InlineKeyboardButton("📱 Mobile JKN", callback_data="mobile"),
+        InlineKeyboardButton("ℹ️ Informasi Lain-lain", callback_data="info"),
+        InlineKeyboardButton("📘 Buku Panduan", callback_data="buku"),
+        InlineKeyboardButton("🌐 Sosial Media", callback_data="sosmed"),
+    )
+    return markup
 
-# ================= MENU BULAN =================
+def home_button():
+    markup = InlineKeyboardMarkup()
+    markup.add(InlineKeyboardButton("🏠 Home", callback_data="home"))
+    return markup
+
 def bulan_menu():
     markup = InlineKeyboardMarkup(row_width=3)
     bulan_list = ["Jan","Feb","Mar","Apr","Mei","Jun",
                   "Jul","Agu","Sep","Okt","Nov","Des"]
     buttons = [InlineKeyboardButton(b, callback_data=f"bulan_{b}") for b in bulan_list]
     markup.add(*buttons)
+    markup.add(InlineKeyboardButton("🏠 Home", callback_data="home"))
     return markup
 
 # ================= START =================
@@ -53,8 +65,10 @@ def bulan_menu():
 def start(message):
     bot.send_message(
         message.chat.id,
-        "👋 *Selamat Datang di Sistem Monitoring FKRTL*\n\nSilakan pilih bulan:",
-        reply_markup=bulan_menu(),
+        "👋 *Selamat Datang di Sistem Monitoring FKRTL*\n\n"
+        "Sistem ini menampilkan indikator kepatuhan dan monitoring layanan RS.\n\n"
+        "Silakan pilih menu di bawah:",
+        reply_markup=main_menu(),
         parse_mode="Markdown"
     )
 
@@ -64,43 +78,32 @@ def callback(call):
 
     data = sheet.get_all_records()
 
-    # ================= PILIH BULAN =================
-    if call.data.startswith("bulan_"):
-        bulan = call.data.split("_")[1]
-
-        markup = InlineKeyboardMarkup()
-        markup.add(
-            InlineKeyboardButton("📊 Seluruh RS", callback_data=f"all_{bulan}"),
-            InlineKeyboardButton("🏥 Per RS", callback_data=f"per_{bulan}")
-        )
-        markup.add(
-            InlineKeyboardButton("⬅️ Kembali", callback_data="back")
-        )
-
+    # ===== HOME =====
+    if call.data == "home":
         bot.edit_message_text(
-            f"📅 Bulan *{bulan}* dipilih\nSilakan pilih tampilan:",
+            "🏠 *Menu Utama*\nSilakan pilih layanan:",
             call.message.chat.id,
             call.message.message_id,
-            reply_markup=markup,
+            reply_markup=main_menu(),
             parse_mode="Markdown"
         )
 
-    # ================= BACK =================
-    elif call.data == "back":
+    # ===== INDIKATOR =====
+    elif call.data == "indikator":
         bot.edit_message_text(
-            "📅 Silakan pilih bulan:",
+            "📊 Pilih Bulan:",
             call.message.chat.id,
             call.message.message_id,
             reply_markup=bulan_menu()
         )
 
-    # ================= SELURUH RS =================
-    elif call.data.startswith("all_"):
+    # ===== PILIH BULAN =====
+    elif call.data.startswith("bulan_"):
         bulan = call.data.split("_")[1]
         hasil = []
 
         for row in data:
-            if str(row.get("BULAN","")).strip().lower() == bulan.lower():
+            if str(row.get("BULAN","")).lower() == bulan.lower():
                 nama = row.get("NamaPPK","-")
                 nilai = float(row.get("Nilai Kepatuhan",0))
                 hasil.append((nama,nilai))
@@ -111,7 +114,7 @@ def callback(call):
 
         hasil.sort(key=lambda x: x[1], reverse=True)
 
-        text = f"📊 *RANKING BULAN {bulan}*\n\n"
+        text = f"📊 *Ranking Kepatuhan Bulan {bulan}*\n\n"
         total = 0
 
         for i,(nama,nilai) in enumerate(hasil,1):
@@ -120,9 +123,14 @@ def callback(call):
             total += nilai
 
         rata = round(total/len(hasil),2)
-        text += f"\n📈 Rata-rata: *{rata}*"
+        terbaik = hasil[0]
+        terendah = hasil[-1]
 
-        # ==== GRAFIK ====
+        text += f"\n📈 Rata-rata: *{rata}*"
+        text += f"\n🏆 Tertinggi: {terbaik[0]} ({terbaik[1]})"
+        text += f"\n⚠️ Terendah: {terendah[0]} ({terendah[1]})"
+
+        # Grafik
         names = [x[0] for x in hasil]
         values = [x[1] for x in hasil]
 
@@ -134,81 +142,34 @@ def callback(call):
         plt.close()
 
         bot.send_photo(call.message.chat.id, open("ranking.png","rb"))
-        bot.send_message(call.message.chat.id,text,parse_mode="Markdown")
+        bot.send_message(call.message.chat.id,text,parse_mode="Markdown",reply_markup=home_button())
 
-        # tombol export
-        markup = InlineKeyboardMarkup()
-        markup.add(
-            InlineKeyboardButton("📄 Export PDF", callback_data=f"pdf_{bulan}")
+    # ===== MENU LAIN TERHUBUNG SHEET =====
+    elif call.data in ["antrian","mobile","info","buku","sosmed"]:
+
+        mapping = {
+            "antrian":"Antrian Online",
+            "mobile":"Mobile JKN",
+            "info":"Informasi Lain-lain",
+            "buku":"Buku Panduan",
+            "sosmed":"Sosial Media"
+        }
+
+        kolom = mapping[call.data]
+        text = f"📌 *{kolom}*\n\n"
+
+        for row in data:
+            text += f"{row.get('NamaPPK','-')} : {row.get(kolom,0)}\n"
+
+        bot.edit_message_text(
+            text,
+            call.message.chat.id,
+            call.message.message_id,
+            parse_mode="Markdown",
+            reply_markup=home_button()
         )
-        markup.add(
-            InlineKeyboardButton("⬅️ Kembali", callback_data="back")
-        )
-
-        bot.send_message(call.message.chat.id,"Menu tambahan:",reply_markup=markup)
-
-    # ================= PER RS =================
-    elif call.data.startswith("per_"):
-        bulan = call.data.split("_")[1]
-
-        markup = InlineKeyboardMarkup(row_width=2)
-
-        for row in data:
-            if str(row.get("BULAN","")).strip().lower() == bulan.lower():
-                rs = row.get("NamaPPK","-")
-                markup.add(
-                    InlineKeyboardButton(rs, callback_data=f"detail_{bulan}_{rs}")
-                )
-
-        markup.add(InlineKeyboardButton("⬅️ Kembali", callback_data="back"))
-
-        bot.send_message(call.message.chat.id,"🏥 Pilih RS:",reply_markup=markup)
-
-    # ================= DETAIL RS =================
-    elif call.data.startswith("detail_"):
-        _, bulan, rs = call.data.split("_",2)
-
-        for row in data:
-            if (str(row.get("BULAN","")).strip().lower() == bulan.lower()
-                and row.get("NamaPPK","") == rs):
-
-                nilai = float(row.get("Nilai Kepatuhan",0))
-                icon = "🟢" if nilai >= 85 else "🔴"
-
-                text = f"🏥 *{rs}*\n\n"
-                text += f"Nilai Kepatuhan: {icon} {nilai}\n"
-                text += f"Nilai TT: {row.get('Nilai (Tempat Tidur)',0)}\n"
-                text += f"Nilai TMO: {row.get('Nilai (TMO)',0)}\n"
-                text += f"Mobile JKN: {row.get('Mobile JKN',0)}\n"
-                text += f"Waktu Tunggu: {row.get('Waktu Tunggu Layanan',0)}\n"
-
-                bot.send_message(call.message.chat.id,text,parse_mode="Markdown")
-                break
-
-    # ================= EXPORT PDF =================
-    elif call.data.startswith("pdf_"):
-        bulan = call.data.split("_")[1]
-
-        hasil = []
-        for row in data:
-            if str(row.get("BULAN","")).strip().lower() == bulan.lower():
-                hasil.append([row.get("NamaPPK","-"), row.get("Nilai Kepatuhan",0)])
-
-        file_name = f"laporan_{bulan}.pdf"
-        doc = SimpleDocTemplate(file_name)
-        elements = []
-
-        style = getSampleStyleSheet()
-        elements.append(Paragraph(f"Laporan Bulan {bulan}", style["Title"]))
-        elements.append(Spacer(1,0.5*inch))
-
-        table = Table([["Nama RS","Nilai Kepatuhan"]] + hasil)
-        elements.append(table)
-
-        doc.build(elements)
-
-        bot.send_document(call.message.chat.id, open(file_name,"rb"))
 
     bot.answer_callback_query(call.id)
 
+print("Bot started ✅")
 bot.infinity_polling()
