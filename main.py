@@ -78,16 +78,20 @@ def bulan_menu():
     markup.add(InlineKeyboardButton("🏠 Home", callback_data="home"))
     return markup
 
-# ================= START =================
 @bot.message_handler(commands=['start'])
 def start(message):
+
+    nama_user = message.from_user.full_name
+
     bot.send_message(
         message.chat.id,
-        "🏥 *SISTEM MONITORING FKRTL*\n"
-        "BPJS Kesehatan\n\n"
-        "Selamat datang di sistem monitoring indikator kepatuhan dan layanan fasilitas kesehatan rujukan tingkat lanjutan.\n\n"
-        "Sistem ini menyediakan informasi evaluasi kinerja rumah sakit berdasarkan data yang terintegrasi.\n\n"
-        "Silakan pilih menu utama di bawah ini:",
+        f"🏥 *SISTEM MONITORING FKRTL*\n"
+        f"BPJS Kesehatan\n"
+        f"Kantor Cabang Solok\n\n"
+        f"Yth. *{nama_user}*,\n\n"
+        "Selamat datang di Sistem Monitoring Fasilitas Kesehatan Rujukan Tingkat Lanjutan (FKRTL).\n\n"
+        "Sistem ini digunakan untuk memantau dan mengevaluasi indikator kepatuhan serta kinerja layanan rumah sakit berdasarkan data terintegrasi.\n\n"
+        "Silakan memilih menu utama untuk mengakses informasi yang dibutuhkan.",
         reply_markup=main_menu(),
         parse_mode="Markdown"
     )
