@@ -5,28 +5,39 @@ import gspread
 import matplotlib.pyplot as plt
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from google.oauth2.service_account import Credentials
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib.styles import ParagraphStyle
-from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table
 from reportlab.lib.units import inch
-from reportlab.platypus import Table
 from reportlab.lib.styles import getSampleStyleSheet
 
+# ================= ENV =================
+
 TOKEN = os.getenv("BOT_TOKEN")
+if not TOKEN:
+    raise ValueError("BOT_TOKEN tidak ditemukan")
+
+creds_env = os.getenv("GOOGLE_CREDENTIALS")
+if not creds_env:
+    raise ValueError("GOOGLE_CREDENTIALS tidak ditemukan")
+
 bot = telebot.TeleBot(TOKEN)
 
-# ================= GOOGLE CONNECTION =================
+# ================= GOOGLE =================
+
 scope = [
-    "https://spreadsheets.google.com/feeds",
+    "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive"
 ]
 
-creds_dict = json.loads(os.getenv("GOOGLE_CREDENTIALS"))
+creds_dict = json.loads(creds_env)
 creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
 client = gspread.authorize(creds)
 
-SPREADSHEET_ID = "PASTE_SPREADSHEET_ID_KAMU"
+SPREADSHEET_ID = "1FiGTCl-Nny3Eqr657Q1luTQMDNwczxr-R9z1PgiorI0"
+
 sheet = client.open_by_key(SPREADSHEET_ID).sheet1
+
+print("Google Sheet connected ✅")
+print("Bot polling started ✅")
 
 # ================= MENU BULAN =================
 def bulan_menu():
