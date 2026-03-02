@@ -33,6 +33,24 @@ client = gspread.authorize(creds)
 SPREADSHEET_ID = "1FiGTCl-Nny3Eqr657Q1luTQMDNwczxr-R9z1PgiorI0"
 sheet = client.open_by_key(SPREADSHEET_ID).sheet1
 
+print("Google Sheet Connected ✅")
+
+# ================= UTIL =================
+def get_data():
+    return sheet.get_all_records()
+
+def safe_edit(chat_id, message_id, text, markup=None):
+    try:
+        bot.edit_message_text(
+            text,
+            chat_id,
+            message_id,
+            reply_markup=markup,
+            parse_mode="Markdown"
+        )
+    except:
+        pass
+
 # ================= MENU UTAMA =================
 def main_menu():
     markup = InlineKeyboardMarkup(row_width=2)
@@ -65,9 +83,11 @@ def bulan_menu():
 def start(message):
     bot.send_message(
         message.chat.id,
-        "👋 *Selamat Datang di Sistem Monitoring FKRTL*\n\n"
-        "Sistem ini menampilkan indikator kepatuhan dan monitoring layanan RS.\n\n"
-        "Silakan pilih menu di bawah:",
+        "🏥 *SISTEM MONITORING FKRTL*\n"
+        "BPJS Kesehatan\n\n"
+        "Selamat datang di sistem monitoring indikator kepatuhan dan layanan fasilitas kesehatan rujukan tingkat lanjutan.\n\n"
+        "Sistem ini menyediakan informasi evaluasi kinerja rumah sakit berdasarkan data yang terintegrasi.\n\n"
+        "Silakan pilih menu utama di bawah ini:",
         reply_markup=main_menu(),
         parse_mode="Markdown"
     )
@@ -76,25 +96,24 @@ def start(message):
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
 
-    data = sheet.get_all_records()
+    data = get_data()
 
     # ===== HOME =====
     if call.data == "home":
-        bot.edit_message_text(
-            "🏠 *Menu Utama*\nSilakan pilih layanan:",
+        safe_edit(
             call.message.chat.id,
             call.message.message_id,
-            reply_markup=main_menu(),
-            parse_mode="Markdown"
+            "🏠 *Menu Utama*\nSilakan pilih layanan:",
+            main_menu()
         )
 
     # ===== INDIKATOR =====
     elif call.data == "indikator":
-        bot.edit_message_text(
-            "📊 Pilih Bulan:",
+        safe_edit(
             call.message.chat.id,
             call.message.message_id,
-            reply_markup=bulan_menu()
+            "📊 *Indikator Kepatuhan*\n\nSilakan pilih bulan:",
+            bulan_menu()
         )
 
     # ===== PILIH BULAN =====
@@ -142,7 +161,12 @@ def callback(call):
         plt.close()
 
         bot.send_photo(call.message.chat.id, open("ranking.png","rb"))
-        bot.send_message(call.message.chat.id,text,parse_mode="Markdown",reply_markup=home_button())
+        bot.send_message(
+            call.message.chat.id,
+            text,
+            parse_mode="Markdown",
+            reply_markup=home_button()
+        )
 
     # ===== MENU LAIN TERHUBUNG SHEET =====
     elif call.data in ["antrian","mobile","info","buku","sosmed"]:
@@ -158,18 +182,28 @@ def callback(call):
         kolom = mapping[call.data]
         text = f"📌 *{kolom}*\n\n"
 
-        for row in data:
-            text += f"{row.get('NamaPPK','-')} : {row.get(kolom,0)}\n"
+        total = 0
+        count = 0
 
-        bot.edit_message_text(
-            text,
+        for row in data:
+            nilai = float(row.get(kolom,0))
+            icon = "🟢" if nilai >= 85 else "🔴"
+            text += f"{row.get('NamaPPK','-')} : {icon} {nilai}\n"
+            total += nilai
+            count += 1
+
+        if count > 0:
+            rata = round(total/count,2)
+            text += f"\n📊 Rata-rata: *{rata}*"
+
+        safe_edit(
             call.message.chat.id,
             call.message.message_id,
-            parse_mode="Markdown",
-            reply_markup=home_button()
+            text,
+            home_button()
         )
 
     bot.answer_callback_query(call.id)
 
-print("Bot started ✅")
+print("Bot Running ✅")
 bot.infinity_polling()
