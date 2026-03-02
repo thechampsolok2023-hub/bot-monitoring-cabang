@@ -1,197 +1,203 @@
+import os
 import telebot
-from telebot.types import ReplyKeyboardMarkup, KeyboardButton
+import json
 import gspread
-from google.oauth2.service_account import Credentials
 import matplotlib.pyplot as plt
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from google.oauth2.service_account import Credentials
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib import colors
 from reportlab.lib.units import inch
+from reportlab.platypus import Table
 from reportlab.lib.styles import getSampleStyleSheet
-import pandas as pd
-import os
 
-# =============================
-# KONFIGURASI
-# =============================
+TOKEN = os.getenv("BOT_TOKEN")
+bot = telebot.TeleBot(TOKEN)
 
-BOT_TOKEN = "8710414432:AAHD8z1dkhAfuHb7nEcFd-seCvDdPDc-0N0"
-SPREADSHEET_ID = "1FiGTCl-Nny3Eqr657Q1luTQMDNwczxr-R9z1PgiorI0"
-WORKSHEET_NAME = "INDIKATOR_FKRTL"
-
-bot = telebot.TeleBot(BOT_TOKEN)
-
-# =============================
-# GOOGLE SHEETS CONNECT
-# =============================
-
+# ================= GOOGLE CONNECTION =================
 scope = [
-    "https://www.googleapis.com/auth/spreadsheets",
+    "https://spreadsheets.google.com/feeds",
     "https://www.googleapis.com/auth/drive"
 ]
-
-import json
-import os
 
 creds_dict = json.loads(os.getenv("GOOGLE_CREDENTIALS"))
 creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
 client = gspread.authorize(creds)
-sheet = client.open_by_key(SPREADSHEET_ID).worksheet(WORKSHEET_NAME)
 
-# =============================
-# MENU UTAMA GRID
-# =============================
+SPREADSHEET_ID = "PASTE_SPREADSHEET_ID_KAMU"
+sheet = client.open_by_key(SPREADSHEET_ID).sheet1
 
-def home_menu():
-    markup = ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.row("📊 Monitoring", "📈 Ranking")
-    markup.row("📱 Antrian Online", "📲 Mobile JKN")
-    markup.row("📘 Buku Panduan", "🌐 Sosial Media")
+# ================= MENU BULAN =================
+def bulan_menu():
+    markup = InlineKeyboardMarkup(row_width=3)
+    bulan_list = ["Jan","Feb","Mar","Apr","Mei","Jun",
+                  "Jul","Agu","Sep","Okt","Nov","Des"]
+    buttons = [InlineKeyboardButton(b, callback_data=f"bulan_{b}") for b in bulan_list]
+    markup.add(*buttons)
     return markup
 
-# =============================
-# WELCOME MESSAGE RESMI
-# =============================
-
+# ================= START =================
 @bot.message_handler(commands=['start'])
 def start(message):
-    text = (
-        "🏥 *SISTEM MONITORING FKRTL*\n"
-        "_Monitoring • Evaluasi • Transparansi_\n\n"
-        "Selamat datang di sistem resmi pemantauan\n"
-        "indikator kepatuhan layanan Fasilitas Kesehatan\n"
-        "Rujukan Tingkat Lanjut (FKRTL).\n\n"
-        "Platform ini membantu memastikan kualitas layanan\n"
-        "berbasis data yang akurat dan real-time.\n\n"
-        "Silakan pilih menu di bawah ini."
-    )
-
     bot.send_message(
         message.chat.id,
-        text,
-        reply_markup=home_menu(),
+        "👋 *Selamat Datang di Sistem Monitoring FKRTL*\n\nSilakan pilih bulan:",
+        reply_markup=bulan_menu(),
         parse_mode="Markdown"
     )
 
-# =============================
-# MENU MONITORING
-# =============================
+# ================= CALLBACK =================
+@bot.callback_query_handler(func=lambda call: True)
+def callback(call):
 
-@bot.message_handler(func=lambda m: m.text == "📊 Monitoring")
-def monitoring_menu(message):
-    markup = ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.row("🏥 Per RS", "🏢 Seluruh RS")
-    markup.row("🏠 Home")
-    bot.send_message(message.chat.id, "Pilih jenis monitoring:", reply_markup=markup)
+    data = sheet.get_all_records()
 
-# =============================
-# INPUT BULAN
-# =============================
+    # ================= PILIH BULAN =================
+    if call.data.startswith("bulan_"):
+        bulan = call.data.split("_")[1]
 
-@bot.message_handler(func=lambda m: m.text in ["🏥 Per RS", "🏢 Seluruh RS"])
-def input_bulan(message):
-    bot.send_message(message.chat.id, "Ketik nama bulan (contoh: Januari)")
-    bot.register_next_step_handler(message, proses_bulan, message.text)
-
-def proses_bulan(message, mode):
-    bulan = message.text
-    data = sheet.get_all_values()
-    hasil = []
-
-    for row in data[1:]:
-        if row[0].lower() == bulan.lower():
-            hasil.append(row)
-
-    if not hasil:
-        bot.send_message(message.chat.id, "Data tidak ditemukan.")
-        return
-
-    if mode == "🏥 Per RS":
-        teks = "📊 *Monitoring Per RS*\n\n"
-        for r in hasil:
-            nilai = float(r[16])
-            warna = "🟢" if nilai >= 80 else "🔴"
-            teks += f"{warna} {r[1]} : {nilai}%\n"
-
-        bot.send_message(message.chat.id, teks, parse_mode="Markdown")
-
-    if mode == "🏢 Seluruh RS":
-        total = sum(float(r[16]) for r in hasil)
-        avg = total / len(hasil)
-        warna = "🟢" if avg >= 80 else "🔴"
-
-        teks = (
-            f"📊 *Monitoring Seluruh RS*\n\n"
-            f"{warna} Rata-rata Kepatuhan: {round(avg,2)}%"
+        markup = InlineKeyboardMarkup()
+        markup.add(
+            InlineKeyboardButton("📊 Seluruh RS", callback_data=f"all_{bulan}"),
+            InlineKeyboardButton("🏥 Per RS", callback_data=f"per_{bulan}")
+        )
+        markup.add(
+            InlineKeyboardButton("⬅️ Kembali", callback_data="back")
         )
 
-        bot.send_message(message.chat.id, teks, parse_mode="Markdown")
+        bot.edit_message_text(
+            f"📅 Bulan *{bulan}* dipilih\nSilakan pilih tampilan:",
+            call.message.chat.id,
+            call.message.message_id,
+            reply_markup=markup,
+            parse_mode="Markdown"
+        )
 
-# =============================
-# RANKING + GRAFIK
-# =============================
+    # ================= BACK =================
+    elif call.data == "back":
+        bot.edit_message_text(
+            "📅 Silakan pilih bulan:",
+            call.message.chat.id,
+            call.message.message_id,
+            reply_markup=bulan_menu()
+        )
 
-@bot.message_handler(func=lambda m: m.text == "📈 Ranking")
-def ranking(message):
-    data = sheet.get_all_values()
-    df = pd.DataFrame(data[1:], columns=data[0])
-    df["Nilai Kepatuhan"] = df["Nilai Kepatuhan"].astype(float)
+    # ================= SELURUH RS =================
+    elif call.data.startswith("all_"):
+        bulan = call.data.split("_")[1]
+        hasil = []
 
-    top = df.sort_values("Nilai Kepatuhan", ascending=False).head(10)
+        for row in data:
+            if str(row.get("BULAN","")).strip().lower() == bulan.lower():
+                nama = row.get("NamaPPK","-")
+                nilai = float(row.get("Nilai Kepatuhan",0))
+                hasil.append((nama,nilai))
 
-    plt.figure()
-    plt.bar(top["NamaPPK"], top["Nilai Kepatuhan"])
-    plt.xticks(rotation=90)
-    plt.title("Top 10 Ranking Kepatuhan")
-    plt.tight_layout()
-    plt.savefig("ranking.png")
-    plt.close()
+        if not hasil:
+            bot.answer_callback_query(call.id,"Data tidak ada")
+            return
 
-    bot.send_photo(message.chat.id, open("ranking.png", "rb"))
+        hasil.sort(key=lambda x: x[1], reverse=True)
 
-# =============================
-# EXPORT PDF
-# =============================
+        text = f"📊 *RANKING BULAN {bulan}*\n\n"
+        total = 0
 
-def export_pdf(data, filename="laporan.pdf"):
-    doc = SimpleDocTemplate(filename)
-    styles = getSampleStyleSheet()
-    elements = []
+        for i,(nama,nilai) in enumerate(hasil,1):
+            icon = "🟢" if nilai >= 85 else "🔴"
+            text += f"{i}. {nama} - {icon} {nilai}\n"
+            total += nilai
 
-    for row in data:
-        elements.append(Paragraph(str(row), styles["Normal"]))
-        elements.append(Spacer(1, 0.2 * inch))
+        rata = round(total/len(hasil),2)
+        text += f"\n📈 Rata-rata: *{rata}*"
 
-    doc.build(elements)
-    return filename
+        # ==== GRAFIK ====
+        names = [x[0] for x in hasil]
+        values = [x[1] for x in hasil]
 
-# =============================
-# MENU TAMBAHAN
-# =============================
+        plt.figure()
+        plt.bar(names, values)
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+        plt.savefig("ranking.png")
+        plt.close()
 
-@bot.message_handler(func=lambda m: m.text == "📱 Antrian Online")
-def antrian(message):
-    bot.send_message(message.chat.id, "Menu Monitoring Antrian Online tersedia.")
+        bot.send_photo(call.message.chat.id, open("ranking.png","rb"))
+        bot.send_message(call.message.chat.id,text,parse_mode="Markdown")
 
-@bot.message_handler(func=lambda m: m.text == "📲 Mobile JKN")
-def mobile(message):
-    bot.send_message(message.chat.id, "Menu Monitoring Mobile JKN tersedia.")
+        # tombol export
+        markup = InlineKeyboardMarkup()
+        markup.add(
+            InlineKeyboardButton("📄 Export PDF", callback_data=f"pdf_{bulan}")
+        )
+        markup.add(
+            InlineKeyboardButton("⬅️ Kembali", callback_data="back")
+        )
 
-@bot.message_handler(func=lambda m: m.text == "📘 Buku Panduan")
-def buku(message):
-    bot.send_message(message.chat.id, "Buku Panduan dapat diakses melalui link resmi instansi.")
+        bot.send_message(call.message.chat.id,"Menu tambahan:",reply_markup=markup)
 
-@bot.message_handler(func=lambda m: m.text == "🌐 Sosial Media")
-def sosial(message):
-    bot.send_message(message.chat.id, "Ikuti sosial media resmi untuk informasi terbaru.")
+    # ================= PER RS =================
+    elif call.data.startswith("per_"):
+        bulan = call.data.split("_")[1]
 
-@bot.message_handler(func=lambda m: m.text == "🏠 Home")
-def back_home(message):
-    start(message)
+        markup = InlineKeyboardMarkup(row_width=2)
 
-# =============================
-# RUN BOT
-# =============================
+        for row in data:
+            if str(row.get("BULAN","")).strip().lower() == bulan.lower():
+                rs = row.get("NamaPPK","-")
+                markup.add(
+                    InlineKeyboardButton(rs, callback_data=f"detail_{bulan}_{rs}")
+                )
 
-print("Bot berjalan...")
+        markup.add(InlineKeyboardButton("⬅️ Kembali", callback_data="back"))
+
+        bot.send_message(call.message.chat.id,"🏥 Pilih RS:",reply_markup=markup)
+
+    # ================= DETAIL RS =================
+    elif call.data.startswith("detail_"):
+        _, bulan, rs = call.data.split("_",2)
+
+        for row in data:
+            if (str(row.get("BULAN","")).strip().lower() == bulan.lower()
+                and row.get("NamaPPK","") == rs):
+
+                nilai = float(row.get("Nilai Kepatuhan",0))
+                icon = "🟢" if nilai >= 85 else "🔴"
+
+                text = f"🏥 *{rs}*\n\n"
+                text += f"Nilai Kepatuhan: {icon} {nilai}\n"
+                text += f"Nilai TT: {row.get('Nilai (Tempat Tidur)',0)}\n"
+                text += f"Nilai TMO: {row.get('Nilai (TMO)',0)}\n"
+                text += f"Mobile JKN: {row.get('Mobile JKN',0)}\n"
+                text += f"Waktu Tunggu: {row.get('Waktu Tunggu Layanan',0)}\n"
+
+                bot.send_message(call.message.chat.id,text,parse_mode="Markdown")
+                break
+
+    # ================= EXPORT PDF =================
+    elif call.data.startswith("pdf_"):
+        bulan = call.data.split("_")[1]
+
+        hasil = []
+        for row in data:
+            if str(row.get("BULAN","")).strip().lower() == bulan.lower():
+                hasil.append([row.get("NamaPPK","-"), row.get("Nilai Kepatuhan",0)])
+
+        file_name = f"laporan_{bulan}.pdf"
+        doc = SimpleDocTemplate(file_name)
+        elements = []
+
+        style = getSampleStyleSheet()
+        elements.append(Paragraph(f"Laporan Bulan {bulan}", style["Title"]))
+        elements.append(Spacer(1,0.5*inch))
+
+        table = Table([["Nama RS","Nilai Kepatuhan"]] + hasil)
+        elements.append(table)
+
+        doc.build(elements)
+
+        bot.send_document(call.message.chat.id, open(file_name,"rb"))
+
+    bot.answer_callback_query(call.id)
+
 bot.infinity_polling()
