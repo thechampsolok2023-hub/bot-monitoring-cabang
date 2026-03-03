@@ -261,19 +261,20 @@ doc.build(elements)
 
 # Kirim PDF
 bot.send_document(call.message.chat.id, open(pdf_file, "rb"))
-            text = (
-                f"📊 *DASHBOARD EKSEKUTIF*\n"
-                f"📅 {bulan} {tahun}\n\n"
-                f"Jumlah RS : {len(hasil)}\n"
-                f"Rata-rata Cabang : {rata:.2f}%\n"
-            )
 
-            bot.send_message(
-                call.message.chat.id,
-                text,
-                parse_mode="Markdown",
-                reply_markup=home_button()
-            )
+text = (
+    f"📊 *DASHBOARD EKSEKUTIF*\n"
+    f"📅 {bulan} {tahun}\n\n"
+    f"Jumlah RS : {len(hasil)}\n"
+    f"Rata-rata Cabang : {rata:.2f}%\n"
+)
+
+bot.send_message(
+    call.message.chat.id,
+    text,
+    parse_mode="Markdown",
+    reply_markup=home_button()
+)
 
         # ===== MODE RS =====
         elif mode == "RS":
@@ -333,8 +334,6 @@ bot.send_document(call.message.chat.id, open(pdf_file, "rb"))
             parse_mode="Markdown",
             reply_markup=home_button()
         )
-
-    bot.answer_callback_query(call.id)
 
     bot.answer_callback_query(call.id)
 
