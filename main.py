@@ -214,7 +214,53 @@ def callback(call):
             plt.close()
 
             bot.send_photo(call.message.chat.id, open("dashboard.png","rb"))
+# ================= PDF EKSEKUTIF =================
+pdf_file = f"Dashboard_Kepatuhan_{bulan}_{tahun}.pdf"
+doc = SimpleDocTemplate(pdf_file)
+elements = []
 
+styles = getSampleStyleSheet()
+
+# Header
+elements.append(Paragraph("<b>DASHBOARD EKSEKUTIF INDIKATOR KEPATUHAN</b>", styles['Title']))
+elements.append(Spacer(1, 0.3 * inch))
+
+elements.append(Paragraph(f"Periode : {bulan} {tahun}", styles['Normal']))
+elements.append(Paragraph(f"Jumlah RS : {len(hasil)}", styles['Normal']))
+elements.append(Paragraph(f"Rata-rata Cabang : {rata:.2f}%", styles['Normal']))
+elements.append(Spacer(1, 0.3 * inch))
+
+# Tabel Ranking
+table_data = [["No", "Nama RS", "Nilai (%)"]]
+
+for i, (nama, nilai) in enumerate(hasil, 1):
+    table_data.append([i, nama, f"{nilai:.2f}"])
+
+table = Table(table_data, repeatRows=1)
+table.setStyle(TableStyle([
+    ('BACKGROUND', (0,0), (-1,0), colors.grey),
+    ('TEXTCOLOR',(0,0),(-1,0),colors.whitesmoke),
+    ('ALIGN',(2,1),(-1,-1),'CENTER'),
+    ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+]))
+
+elements.append(table)
+elements.append(Spacer(1, 0.3 * inch))
+
+# Ringkasan Manajerial
+ringkasan = """
+<b>Ringkasan Manajerial:</b><br/>
+- 🟢 ≥ 85% : Sangat Baik<br/>
+- 🟡 75–84% : Cukup<br/>
+- 🔴 < 75% : Perlu Perbaikan
+"""
+
+elements.append(Paragraph(ringkasan, styles['Normal']))
+
+doc.build(elements)
+
+# Kirim PDF
+bot.send_document(call.message.chat.id, open(pdf_file, "rb"))
             text = (
                 f"📊 *DASHBOARD EKSEKUTIF*\n"
                 f"📅 {bulan} {tahun}\n\n"
