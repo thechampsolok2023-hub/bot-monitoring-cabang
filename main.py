@@ -21,6 +21,9 @@ if not creds_env:
 
 bot = telebot.TeleBot(TOKEN)
 
+# ================= STATE =================
+user_state = {}
+
 # ================= GOOGLE =================
 scope = [
     "https://www.googleapis.com/auth/spreadsheets",
@@ -110,20 +113,24 @@ def callback(call):
         )
 
     elif call.data == "indikator_all":
-        bot.edit_message_text(
-            "📊 Pilih Tahun:",
-            call.message.chat.id,
-            call.message.message_id,
-            reply_markup=tahun_menu()
-        )
+    user_state[call.from_user.id] = "ALL"
+
+    bot.edit_message_text(
+        "📊 Pilih Tahun:",
+        call.message.chat.id,
+        call.message.message_id,
+        reply_markup=tahun_menu()
+    )
 
     elif call.data == "indikator_rs":
-        bot.edit_message_text(
-            "🏥 Pilih Tahun untuk melihat detail per Faskes:",
-            call.message.chat.id,
-            call.message.message_id,
-            reply_markup=tahun_menu()
-        )
+    user_state[call.from_user.id] = "RS"
+
+    bot.edit_message_text(
+        "🏥 Pilih Tahun:",
+        call.message.chat.id,
+        call.message.message_id,
+        reply_markup=tahun_menu()
+    )
 
     elif call.data.startswith("tahun_"):
         tahun = call.data.split("_")[1]
@@ -155,40 +162,41 @@ def callback(call):
 
     elif call.data.startswith("bulan_"):
 
-        _, tahun, bulan = call.data.split("_")
+    _, tahun, bulan = call.data.split("_")
+    mode = user_state.get(call.from_user.id)
+
+    filtered = [
+        row for row in data
+        if str(row.get("TAHUN","")) == tahun
+        and bulan.lower() in str(row.get("BULAN","")).lower()
+    ]
+
+    if not filtered:
+        bot.answer_callback_query(call.id,"Data tidak ada")
+        return
+
+    # =========================================
+    # MODE 1 — SELURUH RS (DASHBOARD EKSEKUTIF)
+    # =========================================
+    if mode == "ALL":
+
         hasil = []
-
-        for row in data:
-            if (str(row.get("TAHUN","")) == tahun and
-                bulan.lower() in str(row.get("BULAN","")).lower()):
-
-                nama = row.get("NamaPPK","-").split("(")[0].strip()
-                nilai = float(row.get("Nilai Kepatuhan") or 0)
-
-                if nilai > 100:
-                    nilai = nilai / 100
-
-                hasil.append((nama,nilai))
-
-        if not hasil:
-            bot.answer_callback_query(call.id,"Data tidak ada")
-            return
-
-        hasil.sort(key=lambda x: x[1], reverse=True)
-
-        text = f"📊 *RANKING INDIKATOR KEPATUHAN*\n📅 {bulan} {tahun}\n\n"
-
         total = 0
-        for i,(nama,nilai) in enumerate(hasil,1):
-            icon = "🟢" if nilai >= 85 else "🟡" if nilai >= 75 else "🔴"
-            nilai_format = f"{nilai:.2f}".replace(".", ",")
-            text += f"{i}. {nama} - {icon} {nilai_format}%\n"
+
+        for row in filtered:
+            nama = row.get("NamaPPK","-").split("(")[0].strip()
+            nilai = float(row.get("Nilai Kepatuhan") or 0)
+
+            if nilai > 100:
+                nilai = nilai / 100
+
+            hasil.append((nama,nilai))
             total += nilai
 
+        hasil.sort(key=lambda x: x[1], reverse=True)
         rata = total / len(hasil)
-        text += f"\n📈 *Rata-rata:* {rata:.2f}%"
 
-        # Grafik
+        # ================= GRAFIK =================
         names = [x[0] for x in hasil]
         values = [x[1] for x in hasil]
 
@@ -196,19 +204,92 @@ def callback(call):
         plt.barh(names, values)
         plt.xlim(0,100)
         plt.xlabel("Nilai Kepatuhan (%)")
-        plt.title(f"Ranking Kepatuhan - {bulan} {tahun}")
+        plt.title(f"Dashboard Kepatuhan - {bulan} {tahun}")
         plt.gca().invert_yaxis()
         plt.tight_layout()
-        plt.savefig("ranking.png")
+        plt.savefig("dashboard.png")
         plt.close()
 
-        bot.send_photo(call.message.chat.id, open("ranking.png","rb"))
+        bot.send_photo(call.message.chat.id, open("dashboard.png","rb"))
+
+        text = (
+            f"📊 *DASHBOARD EKSEKUTIF*\n"
+            f"📅 {bulan} {tahun}\n\n"
+            f"Jumlah RS : {len(hasil)}\n"
+            f"Rata-rata Cabang : {rata:.2f}%\n\n"
+            "Ringkasan:\n"
+            "- 🟢 ≥ 85% Sangat Baik\n"
+            "- 🟡 75–84% Cukup\n"
+            "- 🔴 < 75% Perlu Perbaikan"
+        )
+
         bot.send_message(
             call.message.chat.id,
             text,
             parse_mode="Markdown",
             reply_markup=home_button()
         )
+
+    # =========================================
+    # MODE 2 — PER FASKES (TAMPIL DAFTAR RS)
+    # =========================================
+    elif mode == "RS":
+
+        rs_list = sorted({
+            row.get("NamaPPK","-").split("(")[0].strip()
+            for row in filtered
+        })
+
+        markup = InlineKeyboardMarkup(row_width=1)
+
+        for rs in rs_list:
+            markup.add(
+                InlineKeyboardButton(
+                    rs,
+                    callback_data=f"detail_{tahun}_{bulan}_{rs}"
+                )
+            )
+
+        markup.add(InlineKeyboardButton("🏠 Home", callback_data="home"))
+
+        bot.edit_message_text(
+            f"🏥 Pilih Faskes\n📅 {bulan} {tahun}",
+            call.message.chat.id,
+            call.message.message_id,
+            reply_markup=markup
+        )
+elif call.data.startswith("detail_"):
+
+    _, tahun, bulan, rs_nama = call.data.split("_",3)
+
+    filtered = [
+        row for row in data
+        if str(row.get("TAHUN","")) == tahun
+        and bulan.lower() in str(row.get("BULAN","")).lower()
+        and rs_nama in row.get("NamaPPK","")
+    ]
+
+    if not filtered:
+        bot.answer_callback_query(call.id,"Data tidak ada")
+        return
+
+    row = filtered[0]
+
+    nilai = float(row.get("Nilai Kepatuhan") or 0)
+
+    text = (
+        f"🏥 *{rs_nama}*\n"
+        f"📅 {bulan} {tahun}\n\n"
+        f"Nilai Kepatuhan : {nilai:.2f}%\n\n"
+        "📌 Detail indikator dapat ditambahkan di sini."
+    )
+
+    bot.send_message(
+        call.message.chat.id,
+        text,
+        parse_mode="Markdown",
+        reply_markup=home_button()
+    )
 
     bot.answer_callback_query(call.id)
 
