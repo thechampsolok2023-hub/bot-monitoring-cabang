@@ -181,7 +181,7 @@ def callback(call):
             bot.answer_callback_query(call.id, "Data tidak ada")
             return
 
-        # ===== MODE ALL =====
+        # ================= MODE ALL =================
         if mode == "ALL":
 
             hasil = []
@@ -200,6 +200,7 @@ def callback(call):
             hasil.sort(key=lambda x: x[1], reverse=True)
             rata = total / len(hasil)
 
+            # ===== GRAFIK =====
             names = [x[0] for x in hasil]
             values = [x[1] for x in hasil]
 
@@ -214,69 +215,52 @@ def callback(call):
             plt.close()
 
             bot.send_photo(call.message.chat.id, open("dashboard.png","rb"))
-# ================= PDF EKSEKUTIF =================
-pdf_file = f"Dashboard_Kepatuhan_{bulan}_{tahun}.pdf"
-doc = SimpleDocTemplate(pdf_file)
-elements = []
 
-styles = getSampleStyleSheet()
+            # ===== PDF =====
+            pdf_file = f"Dashboard_Kepatuhan_{bulan}_{tahun}.pdf"
+            doc = SimpleDocTemplate(pdf_file)
+            elements = []
+            styles = getSampleStyleSheet()
 
-# Header
-elements.append(Paragraph("<b>DASHBOARD EKSEKUTIF INDIKATOR KEPATUHAN</b>", styles['Title']))
-elements.append(Spacer(1, 0.3 * inch))
+            elements.append(Paragraph("<b>DASHBOARD EKSEKUTIF INDIKATOR KEPATUHAN</b>", styles['Title']))
+            elements.append(Spacer(1, 0.3 * inch))
+            elements.append(Paragraph(f"Periode : {bulan} {tahun}", styles['Normal']))
+            elements.append(Paragraph(f"Jumlah RS : {len(hasil)}", styles['Normal']))
+            elements.append(Paragraph(f"Rata-rata Cabang : {rata:.2f}%", styles['Normal']))
+            elements.append(Spacer(1, 0.3 * inch))
 
-elements.append(Paragraph(f"Periode : {bulan} {tahun}", styles['Normal']))
-elements.append(Paragraph(f"Jumlah RS : {len(hasil)}", styles['Normal']))
-elements.append(Paragraph(f"Rata-rata Cabang : {rata:.2f}%", styles['Normal']))
-elements.append(Spacer(1, 0.3 * inch))
+            table_data = [["No", "Nama RS", "Nilai (%)"]]
+            for i, (nama, nilai) in enumerate(hasil, 1):
+                table_data.append([i, nama, f"{nilai:.2f}"])
 
-# Tabel Ranking
-table_data = [["No", "Nama RS", "Nilai (%)"]]
+            table = Table(table_data, repeatRows=1)
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,0), colors.grey),
+                ('TEXTCOLOR',(0,0),(-1,0),colors.whitesmoke),
+                ('ALIGN',(2,1),(-1,-1),'CENTER'),
+                ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+            ]))
 
-for i, (nama, nilai) in enumerate(hasil, 1):
-    table_data.append([i, nama, f"{nilai:.2f}"])
+            elements.append(table)
+            doc.build(elements)
 
-table = Table(table_data, repeatRows=1)
-table.setStyle(TableStyle([
-    ('BACKGROUND', (0,0), (-1,0), colors.grey),
-    ('TEXTCOLOR',(0,0),(-1,0),colors.whitesmoke),
-    ('ALIGN',(2,1),(-1,-1),'CENTER'),
-    ('GRID', (0,0), (-1,-1), 0.5, colors.black),
-]))
+            bot.send_document(call.message.chat.id, open(pdf_file, "rb"))
 
-elements.append(table)
-elements.append(Spacer(1, 0.3 * inch))
+            text = (
+                f"📊 *DASHBOARD EKSEKUTIF*\n"
+                f"📅 {bulan} {tahun}\n\n"
+                f"Jumlah RS : {len(hasil)}\n"
+                f"Rata-rata Cabang : {rata:.2f}%"
+            )
 
-# Ringkasan Manajerial
-ringkasan = """
-<b>Ringkasan Manajerial:</b><br/>
-- 🟢 ≥ 85% : Sangat Baik<br/>
-- 🟡 75–84% : Cukup<br/>
-- 🔴 < 75% : Perlu Perbaikan
-"""
+            bot.send_message(
+                call.message.chat.id,
+                text,
+                parse_mode="Markdown",
+                reply_markup=home_button()
+            )
 
-elements.append(Paragraph(ringkasan, styles['Normal']))
-
-doc.build(elements)
-
-# Kirim PDF
-bot.send_document(call.message.chat.id, open(pdf_file, "rb"))
-
-text = (
-    f"📊 *DASHBOARD EKSEKUTIF*\n"
-    f"📅 {bulan} {tahun}\n\n"
-    f"Jumlah RS : {len(hasil)}\n"
-    f"Rata-rata Cabang : {rata:.2f}%\n"
-)
-
-bot.send_message(
-    call.message.chat.id,
-    text,
-    parse_mode="Markdown",
-    reply_markup=home_button()
-)
-
-        # ===== MODE RS =====
+        # ================= MODE RS =================
         elif mode == "RS":
 
             rs_list = sorted({
@@ -302,7 +286,6 @@ bot.send_message(
                 call.message.message_id,
                 reply_markup=markup
             )
-
     # ================= DETAIL RS =================
     elif call.data.startswith("detail_"):
 
