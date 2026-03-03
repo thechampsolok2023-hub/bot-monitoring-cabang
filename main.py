@@ -199,6 +199,16 @@ def callback(call):
 
             hasil.sort(key=lambda x: x[1], reverse=True)
             rata = total / len(hasil)
+            if rs_dibawah_85:
+    daftar_bawah_85 = "\n".join([f"- {rs}" for rs in rs_dibawah_85])
+else:
+    daftar_bawah_85 = "Tidak ada 🎉"
+            # ===== Statistik Eksekutif =====
+tertinggi_nama, tertinggi_nilai = hasil[0]
+terendah_nama, terendah_nilai = hasil[-1]
+
+rs_dibawah_85 = [nama for nama, nilai in hasil if nilai < 85]
+jumlah_dibawah_85 = len(rs_dibawah_85)
 
             # ===== GRAFIK =====
             names = [x[0] for x in hasil]
@@ -250,8 +260,12 @@ def callback(call):
                 f"📊 *DASHBOARD EKSEKUTIF*\n"
                 f"📅 {bulan} {tahun}\n\n"
                 f"Jumlah RS : {len(hasil)}\n"
-                f"Rata-rata Cabang : {rata:.2f}%"
-            )
+                f"Rata-rata Cabang : {rata:.2f}%\n\n"
+                f"🥇 Tertinggi : {tertinggi_nama} ({tertinggi_nilai:.2f}%)\n"
+                f"🔻 Terendah : {terendah_nama} ({terendah_nilai:.2f}%)\n\n"
+                f"🔴 RS < 85% ({jumlah_dibawah_85} RS):\n"
+                f"{daftar_bawah_85}"
+)
 
             bot.send_message(
                 call.message.chat.id,
