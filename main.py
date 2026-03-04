@@ -181,7 +181,7 @@ def callback(call):
             bot.answer_callback_query(call.id, "Data tidak ada")
             return
 
-               # ================= MODE ALL =================
+        # ================= MODE ALL =================
         if mode == "ALL":
 
             hasil = []
@@ -339,4 +339,4 @@ def callback(call):
     bot.answer_callback_query(call.id)
 
 print("Bot started ✅")
-bot.infinity_polling()
+bot.infinity_polling(none_stop=True, skip_pending=True)
