@@ -182,24 +182,92 @@ def callback(call):
             return
 
         # ================= MODE ALL =================
-        if mode == "ALL":
+if mode == "ALL":
 
-            hasil = []
-            total = 0
+    hasil = []
+    total = 0
 
-            for row in filtered:
-                nama = row.get("NamaPPK","-").split("(")[0].strip()
-                nilai = float(row.get("Nilai Kepatuhan") or 0)
+    for row in filtered:
+        nama = row.get("NamaPPK","-").split("(")[0].strip()
+        nilai = float(row.get("Nilai Kepatuhan") or 0)
 
-                if nilai > 100:
-                    nilai = nilai / 100
+        if nilai > 100:
+            nilai = nilai / 100
 
-                hasil.append((nama, nilai))
-                total += nilai
+        hasil.append((nama, nilai))
+        total += nilai
 
-            # Urutkan & rata-rata
-            hasil.sort(key=lambda x: x[1], reverse=True)
-            rata = total / len(hasil)
+    # Urutkan & rata-rata
+    hasil.sort(key=lambda x: x[1], reverse=True)
+    rata = total / len(hasil)
+
+    # ===== Statistik =====
+    tertinggi_nama, tertinggi_nilai = hasil[0]
+    terendah_nama, terendah_nilai = hasil[-1]
+
+    rs_dibawah_85 = [(nama, nilai) for nama, nilai in hasil if nilai < 85]
+    jumlah_dibawah_85 = len(rs_dibawah_85)
+
+    if jumlah_dibawah_85 > 0:
+        daftar_bawah_85 = ""
+        for nama, nilai in rs_dibawah_85:
+            daftar_bawah_85 += f"- {nama} ({nilai:.2f}%)\n"
+    else:
+        daftar_bawah_85 = "Tidak ada 🎉"
+
+    # ===== SIAPKAN DATA GRAFIK =====
+    names = [h[0] for h in hasil]
+    values = [h[1] for h in hasil]
+
+    # ===== BUAT GRAFIK =====
+    plt.figure(figsize=(10,6))
+
+    colors_bar = []
+    for nama, nilai in hasil:
+        if nama == terendah_nama:
+            colors_bar.append('orange')   # highlight khusus
+        elif nilai >= 85:
+            colors_bar.append('green')
+        else:
+            colors_bar.append('red')
+
+    bars = plt.barh(names, values, color=colors_bar)
+
+    plt.xlim(0,100)
+    plt.xlabel("Nilai Kepatuhan (%)")
+    plt.title(f"Dashboard Kepatuhan - {bulan} {tahun}")
+    plt.gca().invert_yaxis()
+
+    # Garis target 85%
+    plt.axvline(x=85, linestyle='--')
+
+    # Tambahkan angka di ujung bar
+    for bar in bars:
+        width = bar.get_width()
+        plt.text(width + 1,
+                 bar.get_y() + bar.get_height()/2,
+                 f'{width:.2f}%',
+                 va='center')
+
+    # Legenda
+    import matplotlib.patches as mpatches
+    legend_items = [
+        mpatches.Patch(color='green', label='≥ 85%'),
+        mpatches.Patch(color='red', label='< 85%'),
+        mpatches.Patch(color='orange', label='Terendah')
+    ]
+    plt.legend(handles=legend_items, loc='lower right')
+
+    plt.tight_layout()
+    plt.savefig("dashboard.png")
+    plt.close()
+         # ===== Tentukan RS terendah =====
+         terendah_nama, terendah_nilai = hasil[-1]
+
+         # ===== Warna threshold =====
+         colors = []
+         ...
+         plt.close()
 
             # ===== Statistik Eksekutif =====
             tertinggi_nama, tertinggi_nilai = hasil[0]
@@ -215,21 +283,52 @@ def callback(call):
             else:
                 daftar_bawah_85 = "Tidak ada 🎉"
 
-            # ===== GRAFIK =====
-            names = [x[0] for x in hasil]
-            values = [x[1] for x in hasil]
+            plt.figure(figsize=(10,6))
 
-            plt.figure(figsize=(8,6))
-            plt.barh(names, values)
-            plt.xlim(0,100)
-            plt.xlabel("Nilai Kepatuhan (%)")
-            plt.title(f"Dashboard Kepatuhan - {bulan} {tahun}")
-            plt.gca().invert_yaxis()
-            plt.tight_layout()
-            plt.savefig("dashboard.png")
-            plt.close()
+# ===== Tentukan RS terendah =====
+terendah_nama, terendah_nilai = hasil[-1]
 
-            bot.send_photo(call.message.chat.id, open("dashboard.png","rb"))
+# ===== Warna threshold =====
+colors = []
+for nama, nilai in hasil:
+    if nama == terendah_nama:
+        colors.append('orange')   # highlight khusus
+    elif nilai >= 85:
+        colors.append('green')
+    else:
+        colors.append('red')
+
+bars = plt.barh(names, values, color=colors)
+
+plt.xlim(0,100)
+plt.xlabel("Nilai Kepatuhan (%)")
+plt.title(f"Dashboard Kepatuhan - {bulan} {tahun}", fontsize=14)
+plt.gca().invert_yaxis()
+
+# ===== Garis target 85% =====
+plt.axvline(x=85, linestyle='--')
+
+# ===== Tambahkan angka di ujung bar =====
+for bar in bars:
+    width = bar.get_width()
+    plt.text(width + 1,
+             bar.get_y() + bar.get_height()/2,
+             f'{width:.2f}%',
+             va='center')
+
+# ===== Legenda kecil =====
+import matplotlib.patches as mpatches
+legend_items = [
+    mpatches.Patch(color='green', label='≥ 85% (Memenuhi Target)'),
+    mpatches.Patch(color='red', label='< 85% (Perlu Perhatian)'),
+    mpatches.Patch(color='orange', label='Terendah')
+]
+
+plt.legend(handles=legend_items, loc='lower right')
+
+plt.tight_layout()
+plt.savefig("dashboard.png")
+plt.close()
 
             # ===== PDF =====
             pdf_file = f"Dashboard_Kepatuhan_{bulan}_{tahun}.pdf"
