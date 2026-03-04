@@ -183,12 +183,12 @@ def callback(call):
         # ================= MODE ALL =================
             if mode == "ALL":
 
-            hasil = []
-            total = 0
+                hasil = []
+                total = 0
 
-            for row in filtered:
-                nama = row.get("NamaPPK","-").split("(")[0].strip()
-                nilai = float(row.get("Nilai Kepatuhan") or 0)
+                for row in filtered:
+                    nama = row.get("NamaPPK","-").split("(")[0].strip()
+                    nilai = float(row.get("Nilai Kepatuhan") or 0)
 
                 if nilai > 100:
                     nilai = nilai / 100
