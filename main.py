@@ -181,154 +181,112 @@ def callback(call):
             bot.answer_callback_query(call.id, "Data tidak ada")
             return
 
-        # ================= MODE ALL =================
-if mode == "ALL":
+            # ================= DETAIL RS =================
+    elif call.data.startswith("detail_"):
 
-    hasil = []
-    total = 0
+        _, tahun, bulan, rs_nama = call.data.split("_", 3)
 
-    for row in filtered:
-        nama = row.get("NamaPPK","-").split("(")[0].strip()
+        filtered = [
+            row for row in data
+            if str(row.get("TAHUN","")) == tahun
+            and bulan.lower() in str(row.get("BULAN","")).lower()
+            and rs_nama in row.get("NamaPPK","")
+        ]
+
+        if not filtered:
+            bot.answer_callback_query(call.id, "Data tidak ada")
+            return
+
+        row = filtered[0]
         nilai = float(row.get("Nilai Kepatuhan") or 0)
 
-        if nilai > 100:
-            nilai = nilai / 100
+        text = (
+            f"🏥 *{rs_nama}*\n"
+            f"📅 {bulan} {tahun}\n\n"
+            f"Nilai Kepatuhan : {nilai:.2f}%"
+        )
 
-        hasil.append((nama, nilai))
-        total += nilai
+        bot.send_message(
+            call.message.chat.id,
+            text,
+            parse_mode="Markdown",
+            reply_markup=home_button()
+        )
 
-    # Urutkan & rata-rata
-    hasil.sort(key=lambda x: x[1], reverse=True)
-    rata = total / len(hasil)
+    # ================= MODE ALL =================
+        if mode == "ALL":
 
-    # ===== Statistik =====
-    tertinggi_nama, tertinggi_nilai = hasil[0]
-    terendah_nama, terendah_nilai = hasil[-1]
+            hasil = []
+            total = 0
 
-    rs_dibawah_85 = [(nama, nilai) for nama, nilai in hasil if nilai < 85]
-    jumlah_dibawah_85 = len(rs_dibawah_85)
+            for row in filtered:
+                nama = row.get("NamaPPK","-").split("(")[0].strip()
+                nilai = float(row.get("Nilai Kepatuhan") or 0)
 
-    if jumlah_dibawah_85 > 0:
-        daftar_bawah_85 = ""
-        for nama, nilai in rs_dibawah_85:
-            daftar_bawah_85 += f"- {nama} ({nilai:.2f}%)\n"
-    else:
-        daftar_bawah_85 = "Tidak ada 🎉"
+                if nilai > 100:
+                    nilai = nilai / 100
 
-    # ===== SIAPKAN DATA GRAFIK =====
-    names = [h[0] for h in hasil]
-    values = [h[1] for h in hasil]
+                hasil.append((nama, nilai))
+                total += nilai
 
-    # ===== BUAT GRAFIK =====
-    plt.figure(figsize=(10,6))
+            hasil.sort(key=lambda x: x[1], reverse=True)
+            rata = total / len(hasil)
 
-    colors_bar = []
-    for nama, nilai in hasil:
-        if nama == terendah_nama:
-            colors_bar.append('orange')   # highlight khusus
-        elif nilai >= 85:
-            colors_bar.append('green')
-        else:
-            colors_bar.append('red')
-
-    bars = plt.barh(names, values, color=colors_bar)
-
-    plt.xlim(0,100)
-    plt.xlabel("Nilai Kepatuhan (%)")
-    plt.title(f"Dashboard Kepatuhan - {bulan} {tahun}")
-    plt.gca().invert_yaxis()
-
-    # Garis target 85%
-    plt.axvline(x=85, linestyle='--')
-
-    # Tambahkan angka di ujung bar
-    for bar in bars:
-        width = bar.get_width()
-        plt.text(width + 1,
-                 bar.get_y() + bar.get_height()/2,
-                 f'{width:.2f}%',
-                 va='center')
-
-    # Legenda
-    import matplotlib.patches as mpatches
-    legend_items = [
-        mpatches.Patch(color='green', label='≥ 85%'),
-        mpatches.Patch(color='red', label='< 85%'),
-        mpatches.Patch(color='orange', label='Terendah')
-    ]
-    plt.legend(handles=legend_items, loc='lower right')
-
-    plt.tight_layout()
-    plt.savefig("dashboard.png")
-    plt.close()
-         # ===== Tentukan RS terendah =====
-         terendah_nama, terendah_nilai = hasil[-1]
-
-         # ===== Warna threshold =====
-         colors = []
-         ...
-         plt.close()
-
-            # ===== Statistik Eksekutif =====
             tertinggi_nama, tertinggi_nilai = hasil[0]
             terendah_nama, terendah_nilai = hasil[-1]
 
-            rs_dibawah_85 = [nama for nama, nilai in hasil if nilai < 85]
+            rs_dibawah_85 = [(n, v) for n, v in hasil if v < 85]
             jumlah_dibawah_85 = len(rs_dibawah_85)
 
             if jumlah_dibawah_85 > 0:
                 daftar_bawah_85 = ""
-                for rs in rs_dibawah_85:
-                    daftar_bawah_85 += f"- {rs}\n"
+                for n, v in rs_dibawah_85:
+                    daftar_bawah_85 += f"- {n} ({v:.2f}%)\n"
             else:
                 daftar_bawah_85 = "Tidak ada 🎉"
 
+            # ===== Grafik =====
+            names = [h[0] for h in hasil]
+            values = [h[1] for h in hasil]
+
             plt.figure(figsize=(10,6))
 
-# ===== Tentukan RS terendah =====
-terendah_nama, terendah_nilai = hasil[-1]
+            colors_bar = []
+            for nama, nilai in hasil:
+                if nama == terendah_nama:
+                    colors_bar.append('orange')
+                elif nilai >= 85:
+                    colors_bar.append('green')
+                else:
+                    colors_bar.append('red')
 
-# ===== Warna threshold =====
-colors = []
-for nama, nilai in hasil:
-    if nama == terendah_nama:
-        colors.append('orange')   # highlight khusus
-    elif nilai >= 85:
-        colors.append('green')
-    else:
-        colors.append('red')
+            bars = plt.barh(names, values, color=colors_bar)
 
-bars = plt.barh(names, values, color=colors)
+            plt.xlim(0,100)
+            plt.xlabel("Nilai Kepatuhan (%)")
+            plt.title(f"Dashboard Kepatuhan - {bulan} {tahun}")
+            plt.gca().invert_yaxis()
 
-plt.xlim(0,100)
-plt.xlabel("Nilai Kepatuhan (%)")
-plt.title(f"Dashboard Kepatuhan - {bulan} {tahun}", fontsize=14)
-plt.gca().invert_yaxis()
+            plt.axvline(x=85, linestyle='--')
 
-# ===== Garis target 85% =====
-plt.axvline(x=85, linestyle='--')
+            for bar in bars:
+                width = bar.get_width()
+                plt.text(width + 1,
+                         bar.get_y() + bar.get_height()/2,
+                         f'{width:.2f}%',
+                         va='center')
 
-# ===== Tambahkan angka di ujung bar =====
-for bar in bars:
-    width = bar.get_width()
-    plt.text(width + 1,
-             bar.get_y() + bar.get_height()/2,
-             f'{width:.2f}%',
-             va='center')
+            import matplotlib.patches as mpatches
+            legend_items = [
+                mpatches.Patch(color='green', label='≥ 85%'),
+                mpatches.Patch(color='red', label='< 85%'),
+                mpatches.Patch(color='orange', label='Terendah')
+            ]
+            plt.legend(handles=legend_items, loc='lower right')
 
-# ===== Legenda kecil =====
-import matplotlib.patches as mpatches
-legend_items = [
-    mpatches.Patch(color='green', label='≥ 85% (Memenuhi Target)'),
-    mpatches.Patch(color='red', label='< 85% (Perlu Perhatian)'),
-    mpatches.Patch(color='orange', label='Terendah')
-]
-
-plt.legend(handles=legend_items, loc='lower right')
-
-plt.tight_layout()
-plt.savefig("dashboard.png")
-plt.close()
+            plt.tight_layout()
+            plt.savefig("dashboard.png")
+            plt.close()
 
             # ===== PDF =====
             pdf_file = f"Dashboard_Kepatuhan_{bulan}_{tahun}.pdf"
@@ -377,6 +335,7 @@ plt.close()
                 parse_mode="Markdown",
                 reply_markup=home_button()
             )
+
         # ================= MODE RS =================
         elif mode == "RS":
 
@@ -403,38 +362,6 @@ plt.close()
                 call.message.message_id,
                 reply_markup=markup
             )
-    # ================= DETAIL RS =================
-    elif call.data.startswith("detail_"):
-
-        _, tahun, bulan, rs_nama = call.data.split("_", 3)
-
-        filtered = [
-            row for row in data
-            if str(row.get("TAHUN","")) == tahun
-            and bulan.lower() in str(row.get("BULAN","")).lower()
-            and rs_nama in row.get("NamaPPK","")
-        ]
-
-        if not filtered:
-            bot.answer_callback_query(call.id, "Data tidak ada")
-            return
-
-        row = filtered[0]
-        nilai = float(row.get("Nilai Kepatuhan") or 0)
-
-        text = (
-            f"🏥 *{rs_nama}*\n"
-            f"📅 {bulan} {tahun}\n\n"
-            f"Nilai Kepatuhan : {nilai:.2f}%"
-        )
-
-        bot.send_message(
-            call.message.chat.id,
-            text,
-            parse_mode="Markdown",
-            reply_markup=home_button()
-        )
-
     bot.answer_callback_query(call.id)
 
 print("Bot started ✅")
