@@ -181,7 +181,7 @@ def callback(call):
             bot.answer_callback_query(call.id, "Data tidak ada")
             return
 
-        # ================= MODE ALL =================
+               # ================= MODE ALL =================
         if mode == "ALL":
 
             hasil = []
@@ -197,18 +197,23 @@ def callback(call):
                 hasil.append((nama, nilai))
                 total += nilai
 
+            # Urutkan & rata-rata
             hasil.sort(key=lambda x: x[1], reverse=True)
             rata = total / len(hasil)
-            if rs_dibawah_85:
-    daftar_bawah_85 = "\n".join([f"- {rs}" for rs in rs_dibawah_85])
-else:
-    daftar_bawah_85 = "Tidak ada 🎉"
-            # ===== Statistik Eksekutif =====
-tertinggi_nama, tertinggi_nilai = hasil[0]
-terendah_nama, terendah_nilai = hasil[-1]
 
-rs_dibawah_85 = [nama for nama, nilai in hasil if nilai < 85]
-jumlah_dibawah_85 = len(rs_dibawah_85)
+            # ===== Statistik Eksekutif =====
+            tertinggi_nama, tertinggi_nilai = hasil[0]
+            terendah_nama, terendah_nilai = hasil[-1]
+
+            rs_dibawah_85 = [nama for nama, nilai in hasil if nilai < 85]
+            jumlah_dibawah_85 = len(rs_dibawah_85)
+
+            if jumlah_dibawah_85 > 0:
+                daftar_bawah_85 = ""
+                for rs in rs_dibawah_85:
+                    daftar_bawah_85 += f"- {rs}\n"
+            else:
+                daftar_bawah_85 = "Tidak ada 🎉"
 
             # ===== GRAFIK =====
             names = [x[0] for x in hasil]
@@ -265,7 +270,7 @@ jumlah_dibawah_85 = len(rs_dibawah_85)
                 f"🔻 Terendah : {terendah_nama} ({terendah_nilai:.2f}%)\n\n"
                 f"🔴 RS < 85% ({jumlah_dibawah_85} RS):\n"
                 f"{daftar_bawah_85}"
-)
+            )
 
             bot.send_message(
                 call.message.chat.id,
@@ -273,7 +278,6 @@ jumlah_dibawah_85 = len(rs_dibawah_85)
                 parse_mode="Markdown",
                 reply_markup=home_button()
             )
-
         # ================= MODE RS =================
         elif mode == "RS":
 
