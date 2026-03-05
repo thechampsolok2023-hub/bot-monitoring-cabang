@@ -409,7 +409,7 @@ def callback(call):
             )
 
         # ================= MODE RS =================
-    elif mode == "RS":
+        elif mode == "RS":
 
             rs_list = sorted({
                 row.get("NamaPPK","-").split("(")[0].strip()
