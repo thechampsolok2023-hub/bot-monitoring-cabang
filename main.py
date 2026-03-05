@@ -156,12 +156,11 @@ def callback(call):
         markup.add(InlineKeyboardButton("🏠 Home", callback_data="home"))
 
         bot.edit_message_text(
-            f"📅 Tahun {tahun}\nPilih Bulan:",
-            call.message.chat.id,
-            call.message.message_id,
-            reply_markup        markup.add(*buttons)
-        markup.add(InlineKeyboardButton("🏠 Home", callback_data="home"))
-
+    f"📅 Tahun {tahun}\nPilih Bulan:",
+    call.message.chat.id,
+    call.message.message_id,
+    reply_markup=markup
+)
         bot.edit_message_text(
             f"📅 Tahun {tahun}\nPilih Bulan:",
             call.message.chat.id,
