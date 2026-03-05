@@ -114,7 +114,7 @@ def callback(call):
             reply_markup=markup
         )
 
-    # ================= MODE ALL =================
+    # ================= MODE =================
     elif call.data == "indikator_all":
         user_state[call.from_user.id] = "ALL"
         bot.edit_message_text(
@@ -124,7 +124,6 @@ def callback(call):
             reply_markup=tahun_menu()
         )
 
-    # ================= MODE RS =================
     elif call.data == "indikator_rs":
         user_state[call.from_user.id] = "RS"
         bot.edit_message_text(
@@ -151,11 +150,16 @@ def callback(call):
         bulan_sorted = [b for b in urutan if b in bulan_set]
 
         markup = InlineKeyboardMarkup(row_width=3)
-        buttons = [
-            InlineKeyboardButton(b, callback_data=f"bulan_{tahun}_{b}")
-            for b in bulan_sorted
-        ]
-        markup.add(*buttons)
+        for b in bulan_sorted:
+            markup.add(InlineKeyboardButton(b, callback_data=f"bulan_{tahun}_{b}"))
+
+        markup.add(InlineKeyboardButton("🏠 Home", callback_data="home"))
+
+        bot.edit_message_text(
+            f"📅 Tahun {tahun}\nPilih Bulan:",
+            call.message.chat.id,
+            call.message.message_id,
+            reply_markup        markup.add(*buttons)
         markup.add(InlineKeyboardButton("🏠 Home", callback_data="home"))
 
         bot.edit_message_text(
