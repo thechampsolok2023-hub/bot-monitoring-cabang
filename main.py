@@ -217,45 +217,55 @@ def callback(call):
             total = 0
 
             for row in filtered:
-                nama = row.get("NamaPPK", "-").split("(")[0].strip()
+                nama = row.get("NamaPPK","-").split("(")[0].strip()
                 nilai = float(row.get("Nilai Kepatuhan") or 0)
 
-                hasil.append((nama, nilai))
-                total += nilai
+            hasil.append((nama, nilai))
+            total += nilai
 
-            hasil.sort(key=lambda x: x[1], reverse=True)
+        hasil.sort(key=lambda x: x[1], reverse=True)
 
-            rata = total / len(hasil)
+        top5 = hasil[:5]
+        ranking_text = ""
 
-            tertinggi_nama, tertinggi_nilai = hasil[0]
-            terendah_nama, terendah_nilai = hasil[-1]
+        for i,(nama,nilai) in enumerate(top5,1):
+            ranking_text += f"{i}. {nama} ({nilai:.2f}%)\n"
 
-            rs_dibawah_85 = [(n, v) for n, v in hasil if v < 85]
+        rata = total / len(hasil)
 
-            if rs_dibawah_85:
-                daftar = "\n".join(
-                    [f"- {n} ({v:.2f}%)" for n, v in rs_dibawah_85]
-                )
-            else:
-                daftar = "Tidak ada 🎉"
+        tertinggi_nama, tertinggi_nilai = hasil[0]
+        terendah_nama, terendah_nilai = hasil[-1]
 
-            text = (
-                f"📊 *DASHBOARD EKSEKUTIF*\n"
-                f"📅 {bulan} {tahun}\n\n"
-                f"Jumlah RS : {len(hasil)}\n"
-                f"Rata-rata Cabang : {rata:.2f}%\n\n"
-                f"🥇 Tertinggi : {tertinggi_nama} ({tertinggi_nilai:.2f}%)\n"
-                f"🔻 Terendah : {terendah_nama} ({terendah_nilai:.2f}%)\n\n"
-                f"🔴 RS < 85%:\n{daftar}"
+        rs_dibawah_85 = [(n, v) for n, v in hasil if v < 85]
+
+        if rs_dibawah_85:
+            daftar = "\n".join(
+                [f"- {n} ({v:.2f}%)" for n, v in rs_dibawah_85]
             )
+        else:
+            daftar = "Tidak ada 🎉"
 
-            bot.send_message(
-                call.message.chat.id,
-                text,
-                parse_mode="Markdown",
-                reply_markup=home_button()
-            )
+        insight = generate_insight(hasil, rata, bulan, tahun)
 
+        text = (
+            f"📊 *DASHBOARD EKSEKUTIF*\n"
+            f"📅 {bulan} {tahun}\n\n"
+            f"Jumlah RS : {len(hasil)}\n"
+            f"Rata-rata Cabang : {rata:.2f}%\n\n"
+            f"🏆 *Top 5 Kepatuhan*\n"
+            f"{ranking_text}\n"
+            f"🥇 Tertinggi : {tertinggi_nama} ({tertinggi_nilai:.2f}%)\n"
+            f"🔻 Terendah : {terendah_nama} ({terendah_nilai:.2f}%)\n\n"
+            f"🔴 RS < 85%:\n{daftar}\n\n"
+            f"{insight}"
+        )
+
+        bot.send_message(
+            call.message.chat.id,
+            text,
+            parse_mode="Markdown",
+            reply_markup=home_button()
+        )
         # ================= MODE RS =================
         elif mode == "RS":
 
