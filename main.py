@@ -63,7 +63,30 @@ def tahun_menu():
     markup.add(InlineKeyboardButton("🏠 Home", callback_data="home"))
     return markup
 
+# ================= AI INSIGHT =================
+def generate_insight(hasil, rata, bulan, tahun):
 
+    tertinggi_nama, tertinggi_nilai = hasil[0]
+    terendah_nama, terendah_nilai = hasil[-1]
+
+    rs_dibawah = [x for x in hasil if x[1] < 85]
+
+    insight = f"""
+INSIGHT ANALISIS
+
+Rata-rata kepatuhan cabang pada periode {bulan} {tahun} adalah {rata:.2f}%.
+
+RS dengan performa terbaik adalah {tertinggi_nama} dengan nilai {tertinggi_nilai:.2f}%.
+
+RS dengan nilai terendah adalah {terendah_nama} dengan nilai {terendah_nilai:.2f}%.
+"""
+
+    if rs_dibawah:
+        insight += f"\nTerdapat {len(rs_dibawah)} RS yang masih berada di bawah target kepatuhan 85%."
+    else:
+        insight += "\nSeluruh RS telah memenuhi target kepatuhan ≥ 85%."
+
+    return insight
 # ================= START =================
 @bot.message_handler(commands=['start'])
 def start(message):
