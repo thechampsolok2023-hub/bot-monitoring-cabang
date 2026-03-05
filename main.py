@@ -114,7 +114,7 @@ def callback(call):
             reply_markup=markup
         )
 
-    # ================= MODE =================
+    # ================= PILIH MODE =================
     elif call.data == "indikator_all":
         user_state[call.from_user.id] = "ALL"
         bot.edit_message_text(
@@ -156,12 +156,6 @@ def callback(call):
         markup.add(InlineKeyboardButton("🏠 Home", callback_data="home"))
 
         bot.edit_message_text(
-    f"📅 Tahun {tahun}\nPilih Bulan:",
-    call.message.chat.id,
-    call.message.message_id,
-    reply_markup=markup
-)
-        bot.edit_message_text(
             f"📅 Tahun {tahun}\nPilih Bulan:",
             call.message.chat.id,
             call.message.message_id,
@@ -183,15 +177,16 @@ def callback(call):
         if not filtered:
             bot.answer_callback_query(call.id, "Data tidak ada")
             return
+
         # ================= MODE ALL =================
-            if mode == "ALL":
+        if mode == "ALL":
 
-                hasil = []
-                total = 0
+            hasil = []
+            total = 0
 
-                for row in filtered:
-                    nama = row.get("NamaPPK","-").split("(")[0].strip()
-                    nilai = float(row.get("Nilai Kepatuhan") or 0)
+            for row in filtered:
+                nama = row.get("NamaPPK","-").split("(")[0].strip()
+                nilai = float(row.get("Nilai Kepatuhan") or 0)
 
                 if nilai > 100:
                     nilai = nilai / 100
@@ -206,87 +201,13 @@ def callback(call):
             terendah_nama, terendah_nilai = hasil[-1]
 
             rs_dibawah_85 = [(n, v) for n, v in hasil if v < 85]
-            jumlah_dibawah_85 = len(rs_dibawah_85)
 
-            if jumlah_dibawah_85 > 0:
-                daftar_bawah_85 = ""
-                for n, v in rs_dibawah_85:
-                    daftar_bawah_85 += f"- {n} ({v:.2f}%)\n"
+            if rs_dibawah_85:
+                daftar_bawah_85 = "\n".join(
+                    [f"- {n} ({v:.2f}%)" for n, v in rs_dibawah_85]
+                )
             else:
                 daftar_bawah_85 = "Tidak ada 🎉"
-
-            # ===== Grafik =====
-            names = [h[0] for h in hasil]
-            values = [h[1] for h in hasil]
-
-            plt.figure(figsize=(10,6))
-
-            colors_bar = []
-            for nama, nilai in hasil:
-                if nama == terendah_nama:
-                    colors_bar.append('orange')
-                elif nilai >= 85:
-                    colors_bar.append('green')
-                else:
-                    colors_bar.append('red')
-
-            bars = plt.barh(names, values, color=colors_bar)
-
-            plt.xlim(0,100)
-            plt.xlabel("Nilai Kepatuhan (%)")
-            plt.title(f"Dashboard Kepatuhan - {bulan} {tahun}")
-            plt.gca().invert_yaxis()
-
-            plt.axvline(x=85, linestyle='--')
-
-            for bar in bars:
-                width = bar.get_width()
-                plt.text(width + 1,
-                         bar.get_y() + bar.get_height()/2,
-                         f'{width:.2f}%',
-                         va='center')
-
-            import matplotlib.patches as mpatches
-            legend_items = [
-                mpatches.Patch(color='green', label='≥ 85%'),
-                mpatches.Patch(color='red', label='< 85%'),
-                mpatches.Patch(color='orange', label='Terendah')
-            ]
-            plt.legend(handles=legend_items, loc='lower right')
-
-            plt.tight_layout()
-            plt.savefig("dashboard.png")
-            plt.close()
-
-            # ===== PDF =====
-            pdf_file = f"Dashboard_Kepatuhan_{bulan}_{tahun}.pdf"
-            doc = SimpleDocTemplate(pdf_file)
-            elements = []
-            styles = getSampleStyleSheet()
-
-            elements.append(Paragraph("<b>DASHBOARD EKSEKUTIF INDIKATOR KEPATUHAN</b>", styles['Title']))
-            elements.append(Spacer(1, 0.3 * inch))
-            elements.append(Paragraph(f"Periode : {bulan} {tahun}", styles['Normal']))
-            elements.append(Paragraph(f"Jumlah RS : {len(hasil)}", styles['Normal']))
-            elements.append(Paragraph(f"Rata-rata Cabang : {rata:.2f}%", styles['Normal']))
-            elements.append(Spacer(1, 0.3 * inch))
-
-            table_data = [["No", "Nama RS", "Nilai (%)"]]
-            for i, (nama, nilai) in enumerate(hasil, 1):
-                table_data.append([i, nama, f"{nilai:.2f}"])
-
-            table = Table(table_data, repeatRows=1)
-            table.setStyle(TableStyle([
-                ('BACKGROUND', (0,0), (-1,0), colors.grey),
-                ('TEXTCOLOR',(0,0),(-1,0),colors.whitesmoke),
-                ('ALIGN',(2,1),(-1,-1),'CENTER'),
-                ('GRID', (0,0), (-1,-1), 0.5, colors.black),
-            ]))
-
-            elements.append(table)
-            doc.build(elements)
-
-            bot.send_document(call.message.chat.id, open(pdf_file, "rb"))
 
             text = (
                 f"📊 *DASHBOARD EKSEKUTIF*\n"
@@ -295,8 +216,7 @@ def callback(call):
                 f"Rata-rata Cabang : {rata:.2f}%\n\n"
                 f"🥇 Tertinggi : {tertinggi_nama} ({tertinggi_nilai:.2f}%)\n"
                 f"🔻 Terendah : {terendah_nama} ({terendah_nilai:.2f}%)\n\n"
-                f"🔴 RS < 85% ({jumlah_dibawah_85} RS):\n"
-                f"{daftar_bawah_85}"
+                f"🔴 RS < 85%:\n{daftar_bawah_85}"
             )
 
             bot.send_message(
@@ -332,7 +252,8 @@ def callback(call):
                 call.message.message_id,
                 reply_markup=markup
             )
-            # ================= DETAIL RS =================
+
+    # ================= DETAIL RS =================
     elif call.data.startswith("detail_"):
 
         _, tahun, bulan, rs_nama = call.data.split("_", 3)
@@ -348,8 +269,7 @@ def callback(call):
             bot.answer_callback_query(call.id, "Data tidak ada")
             return
 
-        row = filtered[0]
-        nilai = float(row.get("Nilai Kepatuhan") or 0)
+        nilai = float(filtered[0].get("Nilai Kepatuhan") or 0)
 
         text = (
             f"🏥 *{rs_nama}*\n"
@@ -364,6 +284,7 @@ def callback(call):
             reply_markup=home_button()
         )
 
+    bot.answer_callback_query(call.id)
     # ================= MODE ALL =================
         if mode == "ALL":
 
