@@ -266,8 +266,8 @@ def callback(call):
             parse_mode="Markdown",
             reply_markup=home_button()
         )
-        # ================= MODE RS =================
-        elif mode == "RS":
+    # ================= MODE RS =================
+    elif mode == "RS":
 
             rs_list = sorted({
                 row.get("NamaPPK", "-").split("(")[0].strip()
