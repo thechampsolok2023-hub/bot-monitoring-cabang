@@ -286,7 +286,7 @@ def callback(call):
 
     bot.answer_callback_query(call.id)
     # ================= MODE ALL =================
-        if mode == "ALL":
+    if mode == "ALL":
 
             hasil = []
             total = 0
