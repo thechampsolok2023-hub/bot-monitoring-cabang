@@ -350,6 +350,7 @@ bot.send_message(
     parse_mode="Markdown",
     reply_markup=home_button()
 )
+bot.answer_callback_query(call.id)
 
 print("Bot started ✅")
 bot.infinity_polling(none_stop=True)
