@@ -194,10 +194,10 @@ def callback(call):
 
         for row in data:
 
-            tahun_row = str(row.get("TAHUN","")).strip()
-            bulan_row = str(row.get("BULAN","")).strip().lower()
+            tahun_row = str(row.get("TAHUN", "")).strip()
+            bulan_row = str(row.get("BULAN", "")).strip().lower()
 
-            if tahun_row == tahun and bulan_row == bulan.lower():
+            if tahun_row == tahun and bulan.lower() in bulan_row:
                 filtered.append(row)
 
         if not filtered:
@@ -221,6 +221,11 @@ def callback(call):
             total += nilai
 
         hasil.sort(key=lambda x: x[1], reverse=True)
+        top5 = hasil[:5]
+
+        ranking_text = ""
+        for i, (nama, nilai) in enumerate(top5, 1):
+            ranking_text += f"{i}. {nama} ({nilai:.2f}%)\n"
 
         rata = total/len(hasil)
 
@@ -328,31 +333,18 @@ def callback(call):
 
         # ================= TEXT =================
 
-        text = f"""
-📊 DASHBOARD EKSEKUTIF
-📅 {bulan} {tahun}
-
-Jumlah RS : {len(hasil)}
-Rata-rata Cabang : {rata:.2f}%
-
-🏆 Top 5 Kepatuhan
-{ranking}
-
-🥇 Tertinggi : {tertinggi_nama} ({tertinggi_nilai:.2f}%)
-🔻 Terendah : {terendah_nama} ({terendah_nilai:.2f}%)
-
-🔴 RS < 85%:
-{daftar}
-
-{generate_insight(hasil,rata,bulan,tahun)}
-"""
-
-        bot.send_message(
-            call.message.chat.id,
-            text,
-            parse_mode="Markdown",
-            reply_markup=home_button()
-        )
+        text = (
+    f"📊 *DASHBOARD EKSEKUTIF*\n"
+    f"📅 {bulan} {tahun}\n\n"
+    f"Jumlah RS : {len(hasil)}\n"
+    f"Rata-rata Cabang : {rata:.2f}%\n\n"
+    f"🏆 *Top 5 Kepatuhan*\n"
+    f"{ranking_text}\n"
+    f"🥇 Tertinggi : {tertinggi_nama} ({tertinggi_nilai:.2f}%)\n"
+    f"🔻 Terendah : {terendah_nama} ({terendah_nilai:.2f}%)\n\n"
+    f"🔴 RS < 85%:\n{daftar}\n\n"
+    f"{generate_insight(hasil, rata, bulan, tahun)}"
+)
 
     bot.answer_callback_query(call.id)
 
