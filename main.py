@@ -163,13 +163,23 @@ def callback(call):
 
         markup = InlineKeyboardMarkup(row_width=3)
 
-        bulan_list = [
+        # ambil bulan yang ada datanya di sheet
+        bulan_set = {
+            str(row.get("BULAN","")).strip()
+            for row in data
+            if str(row.get("TAHUN","")).strip() == tahun
+        }
+
+        # urutan bulan normal
+        urutan_bulan = [
         "Januari","Februari","Maret","April","Mei","Juni",
         "Juli","Agustus","September","Oktober","November","Desember"
         ]
 
-        for b in bulan_list:
+        # hanya tampilkan bulan yang ada datanya
+        bulan_sorted = [b for b in urutan_bulan if b in bulan_set]
 
+        for b in bulan_sorted:
             markup.add(
                 InlineKeyboardButton(b, callback_data=f"bulan_{tahun}_{b}")
             )
