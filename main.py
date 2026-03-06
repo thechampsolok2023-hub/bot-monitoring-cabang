@@ -326,14 +326,13 @@ def callback(call):
 
         doc.build(elements)
 
-        bot.send_document(call.message.chat.id, open(pdf,"rb"))
         with open(pdf, "rb") as file:
             bot.send_document(call.message.chat.id, file)
 
 
         # ================= TEXT =================
 
-        text = (
+text = (
     f"📊 *DASHBOARD EKSEKUTIF*\n"
     f"📅 {bulan} {tahun}\n\n"
     f"Jumlah RS : {len(hasil)}\n"
