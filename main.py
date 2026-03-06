@@ -2,27 +2,30 @@ import os
 import telebot
 import json
 import gspread
+import matplotlib.pyplot as plt
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from google.oauth2.service_account import Credentials
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.units import inch
 
 # ================= ENV =================
-TOKEN = os.getenv("BOT_TOKEN")
-if not TOKEN:
-    raise ValueError("BOT_TOKEN tidak ditemukan")
 
+TOKEN = os.getenv("BOT_TOKEN")
 creds_env = os.getenv("GOOGLE_CREDENTIALS")
-if not creds_env:
-    raise ValueError("GOOGLE_CREDENTIALS tidak ditemukan")
 
 bot = telebot.TeleBot(TOKEN)
 
 # ================= STATE =================
+
 user_state = {}
 
 # ================= GOOGLE =================
+
 scope = [
-    "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive"
+"https://www.googleapis.com/auth/spreadsheets",
+"https://www.googleapis.com/auth/drive"
 ]
 
 creds_dict = json.loads(creds_env)
@@ -33,37 +36,30 @@ SPREADSHEET_ID = "1FiGTCl-Nny3Eqr657Q1luTQMDNwczxr-R9z1PgiorI0"
 sheet = client.open_by_key(SPREADSHEET_ID).sheet1
 
 # ================= MENU =================
+
 def main_menu():
+
     markup = InlineKeyboardMarkup(row_width=2)
+
     markup.add(
         InlineKeyboardButton("📊 Indikator Kepatuhan", callback_data="indikator"),
         InlineKeyboardButton("🏥 Antrian Online", callback_data="antrian"),
         InlineKeyboardButton("📱 Mobile JKN", callback_data="mobile"),
-        InlineKeyboardButton("ℹ️ Informasi Lain-lain", callback_data="info"),
-        InlineKeyboardButton("📘 Buku Panduan", callback_data="buku"),
-        InlineKeyboardButton("🌐 Sosial Media", callback_data="sosmed"),
+        InlineKeyboardButton("ℹ️ Informasi Lain", callback_data="info")
     )
+
     return markup
 
 
 def home_button():
+
     markup = InlineKeyboardMarkup()
     markup.add(InlineKeyboardButton("🏠 Home", callback_data="home"))
     return markup
 
 
-def tahun_menu():
-    data = sheet.get_all_records()
-    tahun_set = {str(row.get("TAHUN", "")).strip() for row in data if row.get("TAHUN")}
-    tahun_sorted = sorted(tahun_set, reverse=True)
-
-    markup = InlineKeyboardMarkup(row_width=3)
-    buttons = [InlineKeyboardButton(t, callback_data=f"tahun_{t}") for t in tahun_sorted]
-    markup.add(*buttons)
-    markup.add(InlineKeyboardButton("🏠 Home", callback_data="home"))
-    return markup
-
 # ================= AI INSIGHT =================
+
 def generate_insight(hasil, rata, bulan, tahun):
 
     tertinggi_nama, tertinggi_nilai = hasil[0]
@@ -71,7 +67,7 @@ def generate_insight(hasil, rata, bulan, tahun):
 
     rs_dibawah = [x for x in hasil if x[1] < 85]
 
-    insight = f"""
+    text = f"""
 INSIGHT ANALISIS
 
 Rata-rata kepatuhan cabang pada periode {bulan} {tahun} adalah {rata:.2f}%.
@@ -82,240 +78,274 @@ RS dengan nilai terendah adalah {terendah_nama} dengan nilai {terendah_nilai:.2f
 """
 
     if rs_dibawah:
-        insight += f"\nTerdapat {len(rs_dibawah)} RS yang masih berada di bawah target kepatuhan 85%."
+        text += f"\nTerdapat {len(rs_dibawah)} RS yang masih berada di bawah target 85%."
     else:
-        insight += "\nSeluruh RS telah memenuhi target kepatuhan ≥ 85%."
+        text += "\nSeluruh RS telah memenuhi target ≥85%."
 
-    return insight
+    return text
+
+
 # ================= START =================
+
 @bot.message_handler(commands=['start'])
 def start(message):
-    nama_user = message.from_user.full_name
 
     bot.send_message(
         message.chat.id,
-        f"🏥 *SISTEM MONITORING FKRTL*\n"
-        f"BPJS Kesehatan\n"
-        f"Kantor Cabang Solok\n\n"
-        f"Yth. *{nama_user}*,\n\n"
-        "Selamat datang di Sistem Monitoring FKRTL.\n\n"
-        "Silakan memilih menu utama.",
-        reply_markup=main_menu(),
-        parse_mode="Markdown"
+        "🏥 *SISTEM MONITORING FKRTL*\n\nSilakan pilih menu:",
+        parse_mode="Markdown",
+        reply_markup=main_menu()
     )
 
 
 # ================= CALLBACK =================
+
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
 
     data = sheet.get_all_records()
 
     # ================= HOME =================
+
     if call.data == "home":
 
         bot.edit_message_text(
-            "🏠 *Menu Utama*\nSilakan pilih layanan:",
+            "🏠 Menu Utama",
             call.message.chat.id,
             call.message.message_id,
-            reply_markup=main_menu(),
-            parse_mode="Markdown"
+            reply_markup=main_menu()
         )
 
+
     # ================= MENU INDIKATOR =================
+
     elif call.data == "indikator":
 
         markup = InlineKeyboardMarkup()
+
         markup.add(
-            InlineKeyboardButton("📊 Seluruh Faskes", callback_data="indikator_all"),
-            InlineKeyboardButton("🏥 Per Faskes", callback_data="indikator_rs"),
+            InlineKeyboardButton("📊 Seluruh Faskes", callback_data="all"),
+            InlineKeyboardButton("🏥 Per Faskes", callback_data="rs")
         )
+
         markup.add(InlineKeyboardButton("🏠 Home", callback_data="home"))
 
         bot.edit_message_text(
-            "Silakan pilih jenis laporan:",
+            "Pilih jenis laporan:",
             call.message.chat.id,
             call.message.message_id,
             reply_markup=markup
         )
 
-    # ================= PILIH MODE =================
-    elif call.data == "indikator_all":
+
+    # ================= MODE =================
+
+    elif call.data == "all":
 
         user_state[call.from_user.id] = "ALL"
 
-        bot.edit_message_text(
-            "📊 Pilih Tahun:",
-            call.message.chat.id,
-            call.message.message_id,
-            reply_markup=tahun_menu()
-        )
-
-    elif call.data == "indikator_rs":
-
-        user_state[call.from_user.id] = "RS"
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("2025", callback_data="tahun_2025"))
 
         bot.edit_message_text(
-            "🏥 Pilih Tahun:",
+            "Pilih Tahun:",
             call.message.chat.id,
             call.message.message_id,
-            reply_markup=tahun_menu()
+            reply_markup=markup
         )
+
 
     # ================= PILIH TAHUN =================
+
     elif call.data.startswith("tahun_"):
 
         tahun = call.data.split("_")[1]
 
-        bulan_set = {
-            str(row.get("BULAN", "")).strip()
-            for row in data
-            if str(row.get("TAHUN", "")) == tahun
-        }
-
-        urutan = [
-            "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-            "Juli", "Agustus", "September", "Oktober", "November", "Desember"
-        ]
-
-        bulan_sorted = [b for b in urutan if b in bulan_set]
-
         markup = InlineKeyboardMarkup(row_width=3)
 
-        for b in bulan_sorted:
-            markup.add(InlineKeyboardButton(b, callback_data=f"bulan_{tahun}_{b}"))
+        bulan_list = [
+        "Januari","Februari","Maret","April","Mei","Juni",
+        "Juli","Agustus","September","Oktober","November","Desember"
+        ]
+
+        for b in bulan_list:
+
+            markup.add(
+                InlineKeyboardButton(b, callback_data=f"bulan_{tahun}_{b}")
+            )
 
         markup.add(InlineKeyboardButton("🏠 Home", callback_data="home"))
 
         bot.edit_message_text(
-            f"📅 Tahun {tahun}\nPilih Bulan:",
+            f"Tahun {tahun}\nPilih Bulan:",
             call.message.chat.id,
             call.message.message_id,
             reply_markup=markup
         )
 
+
     # ================= PILIH BULAN =================
+
     elif call.data.startswith("bulan_"):
 
         _, tahun, bulan = call.data.split("_")
-        mode = user_state.get(call.from_user.id)
 
-        filtered = [
-            row for row in data
-            if str(row.get("TAHUN", "")) == tahun
-            and bulan.lower() in str(row.get("BULAN", "")).lower()
-        ]
+        filtered = []
+
+        for row in data:
+
+            tahun_row = str(row.get("TAHUN","")).strip()
+            bulan_row = str(row.get("BULAN","")).strip().lower()
+
+            if tahun_row == tahun and bulan_row == bulan.lower():
+                filtered.append(row)
 
         if not filtered:
+
             bot.answer_callback_query(call.id, "Data tidak ada")
             return
 
-        # ================= MODE ALL =================
-        if mode == "ALL":
+        # ================= HITUNG DATA =================
 
-            hasil = []
-            total = 0
+        hasil = []
+        total = 0
 
-            for row in filtered:
-                nama = row.get("NamaPPK","-").split("(")[0].strip()
-                nilai = float(row.get("Nilai Kepatuhan") or 0)
+        for row in filtered:
 
-            hasil.append((nama, nilai))
+            nama = row.get("NamaPPK","-").split("(")[0].strip()
+
+            nilai_str = str(row.get("Nilai Kepatuhan","0")).replace(",",".")
+            nilai = float(nilai_str)
+
+            hasil.append((nama,nilai))
             total += nilai
 
         hasil.sort(key=lambda x: x[1], reverse=True)
 
-        top5 = hasil[:5]
-        ranking_text = ""
-
-        for i,(nama,nilai) in enumerate(top5,1):
-            ranking_text += f"{i}. {nama} ({nilai:.2f}%)\n"
-
-        rata = total / len(hasil)
+        rata = total/len(hasil)
 
         tertinggi_nama, tertinggi_nilai = hasil[0]
         terendah_nama, terendah_nilai = hasil[-1]
 
-        rs_dibawah_85 = [(n, v) for n, v in hasil if v < 85]
+        rs_bawah = [(n,v) for n,v in hasil if v < 85]
 
-        if rs_dibawah_85:
+        if rs_bawah:
+
             daftar = "\n".join(
-                [f"- {n} ({v:.2f}%)" for n, v in rs_dibawah_85]
+            [f"- {n} ({v:.2f}%)" for n,v in rs_bawah]
             )
+
         else:
+
             daftar = "Tidak ada 🎉"
 
-        insight = generate_insight(hasil, rata, bulan, tahun)
 
-        text = (
-            f"📊 *DASHBOARD EKSEKUTIF*\n"
-            f"📅 {bulan} {tahun}\n\n"
-            f"Jumlah RS : {len(hasil)}\n"
-            f"Rata-rata Cabang : {rata:.2f}%\n\n"
-            f"🏆 *Top 5 Kepatuhan*\n"
-            f"{ranking_text}\n"
-            f"🥇 Tertinggi : {tertinggi_nama} ({tertinggi_nilai:.2f}%)\n"
-            f"🔻 Terendah : {terendah_nama} ({terendah_nilai:.2f}%)\n\n"
-            f"🔴 RS < 85%:\n{daftar}\n\n"
-            f"{insight}"
-        )
+        # ================= TOP 5 =================
 
-        bot.send_message(
-            call.message.chat.id,
-            text,
-            parse_mode="Markdown",
-            reply_markup=home_button()
-        )
-    # ================= MODE RS =================
-    elif mode == "RS":
+        top5 = hasil[:5]
 
-            rs_list = sorted({
-                row.get("NamaPPK", "-").split("(")[0].strip()
-                for row in filtered
-            })
+        ranking = ""
 
-            markup = InlineKeyboardMarkup(row_width=1)
+        for i,(n,v) in enumerate(top5,1):
+            ranking += f"{i}. {n} ({v:.2f}%)\n"
 
-            for rs in rs_list:
-                markup.add(
-                    InlineKeyboardButton(
-                        rs,
-                        callback_data=f"detail_{tahun}_{bulan}_{rs}"
-                    )
-                )
 
-            markup.add(InlineKeyboardButton("🏠 Home", callback_data="home"))
+        # ================= GRAFIK =================
 
-            bot.edit_message_text(
-                f"🏥 Pilih Faskes\n📅 {bulan} {tahun}",
-                call.message.chat.id,
-                call.message.message_id,
-                reply_markup=markup
-            )
+        names = [x[0] for x in hasil]
+        values = [x[1] for x in hasil]
 
-    # ================= DETAIL RS =================
-    elif call.data.startswith("detail_"):
+        colors_bar = []
 
-        _, tahun, bulan, rs_nama = call.data.split("_", 3)
+        for n,v in hasil:
 
-        filtered = [
-            row for row in data
-            if str(row.get("TAHUN", "")) == tahun
-            and bulan.lower() in str(row.get("BULAN", "")).lower()
-            and rs_nama in row.get("NamaPPK", "")
-        ]
+            if n == terendah_nama:
+                colors_bar.append("orange")
 
-        if not filtered:
-            bot.answer_callback_query(call.id, "Data tidak ada")
-            return
+            elif v >= 85:
+                colors_bar.append("green")
 
-        nilai = float(filtered[0].get("Nilai Kepatuhan") or 0)
+            else:
+                colors_bar.append("red")
 
-        text = (
-            f"🏥 *{rs_nama}*\n"
-            f"📅 {bulan} {tahun}\n\n"
-            f"Nilai Kepatuhan : {nilai:.2f}%"
-        )
+        plt.figure(figsize=(10,6))
+
+        bars = plt.barh(names, values, color=colors_bar)
+
+        plt.axvline(85, linestyle="--")
+
+        plt.xlabel("Nilai Kepatuhan (%)")
+        plt.title(f"Dashboard Kepatuhan {bulan} {tahun}")
+
+        plt.gca().invert_yaxis()
+
+        for bar in bars:
+
+            width = bar.get_width()
+
+            plt.text(width+1,
+                     bar.get_y()+bar.get_height()/2,
+                     f"{width:.2f}%",
+                     va="center")
+
+        plt.tight_layout()
+
+        plt.savefig("grafik.png")
+        plt.close()
+
+
+        # ================= PDF =================
+
+        pdf = f"Dashboard_{bulan}_{tahun}.pdf"
+
+        styles = getSampleStyleSheet()
+
+        elements = []
+
+        elements.append(Paragraph("DASHBOARD EKSEKUTIF", styles['Title']))
+        elements.append(Spacer(1,20))
+
+        elements.append(Paragraph(f"Periode : {bulan} {tahun}", styles['Normal']))
+        elements.append(Paragraph(f"Jumlah RS : {len(hasil)}", styles['Normal']))
+        elements.append(Paragraph(f"Rata-rata : {rata:.2f}%", styles['Normal']))
+
+        elements.append(Spacer(1,20))
+
+        elements.append(Image("grafik.png", width=6*inch, height=4*inch))
+
+        elements.append(Spacer(1,20))
+
+        insight = generate_insight(hasil,rata,bulan,tahun)
+
+        elements.append(Paragraph(insight.replace("\n","<br/>"), styles['Normal']))
+
+        doc = SimpleDocTemplate(pdf)
+
+        doc.build(elements)
+
+        bot.send_document(call.message.chat.id, open(pdf,"rb"))
+
+
+        # ================= TEXT =================
+
+        text = f"""
+📊 DASHBOARD EKSEKUTIF
+📅 {bulan} {tahun}
+
+Jumlah RS : {len(hasil)}
+Rata-rata Cabang : {rata:.2f}%
+
+🏆 Top 5 Kepatuhan
+{ranking}
+
+🥇 Tertinggi : {tertinggi_nama} ({tertinggi_nilai:.2f}%)
+🔻 Terendah : {terendah_nama} ({terendah_nilai:.2f}%)
+
+🔴 RS < 85%:
+{daftar}
+
+{generate_insight(hasil,rata,bulan,tahun)}
+"""
 
         bot.send_message(
             call.message.chat.id,
@@ -328,4 +358,4 @@ def callback(call):
 
 
 print("Bot started ✅")
-bot.infinity_polling(none_stop=True, skip_pending=True)
+bot.infinity_polling(none_stop=True)
