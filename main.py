@@ -327,6 +327,8 @@ def callback(call):
         doc.build(elements)
 
         bot.send_document(call.message.chat.id, open(pdf,"rb"))
+        with open(pdf, "rb") as file:
+            bot.send_document(call.message.chat.id, file)
 
 
         # ================= TEXT =================
@@ -342,6 +344,12 @@ def callback(call):
     f"🔻 Terendah : {terendah_nama} ({terendah_nilai:.2f}%)\n\n"
     f"🔴 RS < 85%:\n{daftar}\n\n"
     f"{generate_insight(hasil, rata, bulan, tahun)}"
+)
+bot.send_message(
+    call.message.chat.id,
+    text,
+    parse_mode="Markdown",
+    reply_markup=home_button()
 )
 
     bot.answer_callback_query(call.id)
