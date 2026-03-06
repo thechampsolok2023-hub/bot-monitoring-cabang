@@ -247,12 +247,10 @@ def callback(call):
 
         # ================= TOP 5 =================
 
-        top5 = hasil[:5]
+        ranking_text = ""
 
-        ranking = ""
-
-        for i,(n,v) in enumerate(top5,1):
-            ranking += f"{i}. {n} ({v:.2f}%)\n"
+        for i, (nama, nilai) in enumerate(hasil, 1):
+            ranking_text += f"{i}. {nama} ({nilai:.2f}%)\n"
 
 
         # ================= GRAFIK =================
@@ -338,7 +336,7 @@ def callback(call):
     f"📅 {bulan} {tahun}\n\n"
     f"Jumlah RS : {len(hasil)}\n"
     f"Rata-rata Cabang : {rata:.2f}%\n\n"
-    f"🏆 *Top 5 Kepatuhan*\n"
+    f"🏆 Ranking Kepatuhan RS\n"
     f"{ranking_text}\n"
     f"🥇 Tertinggi : {tertinggi_nama} ({tertinggi_nilai:.2f}%)\n"
     f"🔻 Terendah : {terendah_nama} ({terendah_nilai:.2f}%)\n\n"
