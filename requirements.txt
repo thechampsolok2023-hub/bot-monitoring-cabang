@@ -1,6 +1,6 @@
-pyTelegramBotAPI
-gspread
-google-auth
-matplotlib
-reportlab
-pandas
+pyTelegramBotAPI==4.18.1
+gspread==6.1.2
+google-auth==2.35.0
+matplotlib==3.9.2
+reportlab==4.2.5
+python-dotenv==1.0.1
